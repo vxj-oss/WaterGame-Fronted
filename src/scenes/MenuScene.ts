@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { LEVELS } from '../levels';
 import { net } from '../net';
 import { openOnline } from '../screens';
+import { openHub } from '../games/hub';
 import { nextLevelIndex } from '../save';
 import { sfx } from '../audio';
 import { toggleFullscreen } from '../fullscreen';
@@ -30,13 +31,14 @@ export class MenuScene extends Phaser.Scene {
       t.setAlpha(0).setY(t.y + 24);
       this.tweens.add({ targets: t, alpha: 1, y: t.y - 24, duration: 520, delay: 120 + i * 140, ease: 'Back.out' });
     });
-    text(this, x0, 338, 'Dos personajes, un solo camino', { fontSize: '19px', color: CSS.mute, fontStyle: '700' });
+    text(this, x0, 318, 'Dos personajes, un solo camino', { fontSize: '19px', color: CSS.mute, fontStyle: '700' });
 
     const play = () => this.scene.start('Level', { level: nextLevelIndex(LEVELS.length) });
-    button(this, x0, 404, 'Jugar en pareja', () => void openOnline(this), { w: 320, h: 64, size: '24px', align: 'left' });
-    button(this, x0, 474, 'Jugar local', play, { w: 156, h: 52, variant: 'lagoon', size: '19px', align: 'left' });
-    button(this, x0 + 164, 474, 'Niveles', () => this.scene.start('LevelSelect'), { w: 156, h: 52, variant: 'ghost', size: '19px', align: 'left' });
-    text(this, x0, 536, 'Fuego: A D W    Agua: ← → ↑    R reinicia', { fontSize: '14px', color: CSS.mute, fontStyle: '700' });
+    button(this, x0, 384, 'Jugar en pareja', () => void openOnline(this), { w: 320, h: 60, size: '24px', align: 'left' });
+    button(this, x0, 448, 'Jugar local', play, { w: 156, h: 48, variant: 'lagoon', size: '19px', align: 'left' });
+    button(this, x0 + 164, 448, 'Niveles', () => this.scene.start('LevelSelect'), { w: 156, h: 48, variant: 'ghost', size: '19px', align: 'left' });
+    button(this, x0, 504, 'Ver más juegos', () => openHub(this), { w: 320, h: 48, variant: 'gold', size: '19px', align: 'left' });
+    text(this, x0, 556, 'Fuego: A D W    Agua: ← → ↑    R reinicia', { fontSize: '14px', color: CSS.mute, fontStyle: '700' });
 
     if (net.reopenLobby) {
       net.reopenLobby = false;

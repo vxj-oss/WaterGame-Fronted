@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { API, api, net } from './net';
 import { LEVELS } from './levels';
 import { nextLevelIndex, record } from './save';
+import { launchGame } from './games/kit';
+import { gameById } from './games/registry';
 
 declare const google: any;
 
@@ -25,25 +27,25 @@ function card(html: string) {
   el.innerHTML = `<div class="card">${html}</div>`;
 }
 
-export async function openOnline(scene: Phaser.Scene) {
-  if (!net.token) return loginScreen(scene);
+export async function openOnline(scene: Phaser.Scene, game?: string) {
+  if (!net.token) return loginScreen(scene, game);
   try {
     await api('/couple');
   } catch (e) {
     if ((e as Error).message === 'unauthorized') {
       net.logout();
-      return loginScreen(scene);
+      return loginScreen(scene, game);
     }
-    return errorScreen(scene);
+    return errorScreen(scene, game);
   }
-  return tableScreen(scene);
+  return tableScreen(scene, game);
 }
 
-function errorScreen(scene: Phaser.Scene) {
+function errorScreen(scene: Phaser.Scene, game?: string) {
   card(`${brand('Sin conexión')}<h2>No hay señal</h2>
     <p>No pude conectar con el servidor.<br><small>${esc(API)}</small></p>
     <button id="retry" class="lagoon">Reintentar</button><button id="back" class="ghost">Volver</button>`);
-  $('retry').onclick = () => void openOnline(scene);
+  $('retry').onclick = () => void openOnline(scene, game);
   $('back').onclick = hideUi;
 }
 
@@ -59,7 +61,7 @@ function loadGsi(): Promise<void> {
   return gsiPromise;
 }
 
-async function loginScreen(scene: Phaser.Scene) {
+async function loginScreen(scene: Phaser.Scene, game?: string) {
   card(`${brand('Fuego y Agua')}<h2>Entra y juega</h2>
     <p>Inicia sesión para crear una mesa y jugar con tu pareja, cada quien desde su celular.</p>
     <div id="g" style="display:flex;justify-content:center;min-height:44px"></div><p id="msg" class="err"></p>
@@ -70,12 +72,12 @@ async function loginScreen(scene: Phaser.Scene) {
   try {
     cfg = await api('/config');
   } catch {
-    return errorScreen(scene);
+    return errorScreen(scene, game);
   }
   const msg = $('msg');
   const done = (d: { token: string; user: { name: string; picture?: string | null } }) => {
     net.setSession(d.token, d.user);
-    void tableScreen(scene);
+    void tableScreen(scene, game);
   };
 
   if (cfg.googleClientId) {
@@ -107,14 +109,14 @@ interface Couple {
   members: number;
 }
 
-async function tableScreen(scene: Phaser.Scene) {
+async function tableScreen(scene: Phaser.Scene, game?: string) {
   let couple: Couple | null;
   try {
     couple = await api<Couple | null>('/couple');
   } catch {
-    return errorScreen(scene);
+    return errorScreen(scene, game);
   }
-  if (couple) return lobbyScreen(scene, couple);
+  if (couple) return lobbyScreen(scene, couple, game);
 
   card(`${brand('Mesa de juego')}<h2>Hola, ${esc((net.user?.name ?? '').split(' ')[0])}</h2>
     <p>Crea una mesa y pásale el código a tu pareja, o únete con el código que te dio.</p>
@@ -133,7 +135,7 @@ async function tableScreen(scene: Phaser.Scene) {
   $('create').onclick = async () => {
     try {
       await api('/couple/create', 'POST');
-      void tableScreen(scene);
+      void tableScreen(scene, game);
     } catch {
       msg.textContent = 'No se pudo crear la mesa';
     }
@@ -143,7 +145,7 @@ async function tableScreen(scene: Phaser.Scene) {
     if (!code) return;
     try {
       await api('/couple/join', 'POST', { code });
-      void tableScreen(scene);
+      void tableScreen(scene, game);
     } catch (e) {
       const m = (e as Error).message;
       msg.textContent = m === 'code not found' ? 'No existe esa mesa' : m === 'couple is full' ? 'Esa mesa ya está llena' : 'No se pudo unir';
@@ -162,7 +164,7 @@ async function syncProgress() {
   }
 }
 
-async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
+async function lobbyScreen(scene: Phaser.Scene, couple: Couple, game?: string) {
   await syncProgress();
   net.connect();
   const offs: (() => void)[] = [];
@@ -175,6 +177,16 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
     cleanup();
     hideUi();
     scene.scene.start('Level', { level, online: true });
+  };
+
+  const gameDef = game ? gameById(game) : undefined;
+
+  const startGame = (id: string) => {
+    const def = gameById(id);
+    if (!def) return;
+    cleanup();
+    hideUi();
+    launchGame(def, 'online');
   };
 
   const draw = () => {
@@ -191,25 +203,36 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
         ${slot(you, 'Tú', connected, connected ? 'Conectado' : 'Conectando')}
         ${slot(other, 'Tu pareja', connected && net.peerOnline, net.peerOnline ? 'Aquí contigo' : 'Esperando')}
       </div>
-      <p>Juegas como <b>${role === 'fire' ? 'Fuego' : 'Agua'}</b>.</p>
-      <div class="row"><button id="go" ${net.peerOnline ? '' : 'disabled'}>Empezar</button>
-      <button id="pick" class="lagoon" ${net.peerOnline ? '' : 'disabled'}>Elegir nivel</button></div>
+      <p>${gameDef ? `Van a jugar <b>${esc(gameDef.name)}</b>.` : `Juegas como <b>${role === 'fire' ? 'Fuego' : 'Agua'}</b>.`}</p>
+      ${
+        gameDef
+          ? `<div class="row"><button id="gg" ${net.peerOnline ? '' : 'disabled'}>Jugar ${esc(gameDef.name)}</button></div>`
+          : `<div class="row"><button id="go" ${net.peerOnline ? '' : 'disabled'}>Empezar</button>
+      <button id="pick" class="lagoon" ${net.peerOnline ? '' : 'disabled'}>Elegir nivel</button></div>`
+      }
       <div class="row"><button id="back" class="link">Menú</button><button id="leave" class="link">Salir de la mesa</button></div>`);
     $('copy').onclick = () => {
       void navigator.clipboard?.writeText(couple.code);
       $('copy').textContent = '¡Código copiado!';
     };
-    $('go').onclick = () => {
-      const lvl = nextLevelIndex(LEVELS.length);
-      net.send('event', { t: 'goto', level: lvl });
-      start(lvl);
-    };
-    $('pick').onclick = () => {
-      net.send('event', { t: 'select' });
-      cleanup();
-      hideUi();
-      scene.scene.start('LevelSelect', { online: true });
-    };
+    if (gameDef) {
+      $('gg').onclick = () => {
+        net.send('event', { t: 'game', id: gameDef.id });
+        startGame(gameDef.id);
+      };
+    } else {
+      $('go').onclick = () => {
+        const lvl = nextLevelIndex(LEVELS.length);
+        net.send('event', { t: 'goto', level: lvl });
+        start(lvl);
+      };
+      $('pick').onclick = () => {
+        net.send('event', { t: 'select' });
+        cleanup();
+        hideUi();
+        scene.scene.start('LevelSelect', { online: true });
+      };
+    }
     $('leave').onclick = async () => {
       cleanup();
       net.disconnect();
@@ -218,7 +241,7 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
       } catch {
         return;
       }
-      void tableScreen(scene);
+      void tableScreen(scene, game);
     };
     $('back').onclick = () => {
       cleanup();
@@ -231,7 +254,8 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
     net.on('peer-joined', draw),
     net.on('peer-left', draw),
     net.on('disconnected', draw),
-    net.on('event', (e: { t: string; level?: number }) => {
+    net.on('event', (e: { t: string; level?: number; id?: string }) => {
+      if (e.t === 'game' && typeof e.id === 'string') startGame(e.id);
       if (e.t === 'goto' && typeof e.level === 'number') start(e.level);
       if (e.t === 'select') {
         cleanup();
