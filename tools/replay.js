@@ -1,7 +1,3 @@
-// Reproduce en el juego REAL (con su física) la solución que encontró el verificador y comprueba cada acción.
-// Se pega en la consola del navegador con el juego abierto en modo desarrollo (npm run dev):
-//   await __replay(7)   → reproduce la solución del nivel 7 (numerado desde 1) y devuelve las diferencias.
-// Las soluciones se generan con: npx tsx tools/verify-levels.ts --sol
 window.__replay = async (levelNo, opts = {}) => {
   const g = window.__game;
   const sol = await fetch(`/tools/solutions/${levelNo}.json`).then((r) => r.json());
@@ -78,9 +74,6 @@ window.__replay = async (levelNo, opts = {}) => {
     }
 
     const row = Math.round((s.y + 15) / 32);
-    // La física real es algo más generosa que la del verificador (salta más lejos), así que
-    // se acepta caer algo más allá en la dirección del movimiento; lo que no vale es quedarse corto,
-    // morir o terminar en otra altura.
     const dir = a.kind === 'walk' || a.kind === 'push' ? a.d : a.opts.dir;
     const over = dir ? (s.x - a.tx) * dir : Math.abs(s.x - a.tx);
     const ok = sc.mode === 'playing' && row === a.trow && (dir ? over >= -14 && over <= 48 : over <= 14);
@@ -92,7 +85,6 @@ window.__replay = async (levelNo, opts = {}) => {
       });
       if (!opts.keepGoing) break;
     }
-    // Seguir desde la posición exacta que supone el verificador (evita arrastrar diferencias).
     if (sc.mode === 'playing') place(a.role, a.tx, a.trow);
   }
   settleWorld();

@@ -1,11 +1,8 @@
-// Efectos de sonido sintetizados con WebAudio (no necesitan archivos).
-
 let ctx: AudioContext | null = null;
 let muted = false;
 try {
   muted = localStorage.getItem('waterfire-muted') === '1';
 } catch {
-  /* sin localStorage */
 }
 
 function ac(): AudioContext | null {
@@ -52,7 +49,6 @@ export const sfx = {
     try {
       localStorage.setItem('waterfire-muted', muted ? '1' : '0');
     } catch {
-      /* sin localStorage */
     }
     return muted;
   },

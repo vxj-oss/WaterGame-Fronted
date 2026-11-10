@@ -3,13 +3,15 @@ import { API, api, net } from './net';
 import { LEVELS } from './levels';
 import { nextLevelIndex, record } from './save';
 
-// Pantallas HTML (login y mesa de juego) que se muestran encima del canvas.
-
-declare const google: any; // Google Identity Services
+declare const google: any;
 
 const root = () => document.getElementById('ui')!;
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+const FLAME = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5c.9 4 6.5 6.2 6.5 12.4a6.5 6.5 0 0 1-13 0c0-3.2 2-4.6 3-6.8.7 1.6 1.6 2 2.4 1.3C11.5 6.6 11.8 4 12 1.5z"/></svg>';
+const DROP = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5s7 7.3 7 12.4a7 7 0 0 1-14 0C5 8.8 12 1.5 12 1.5z"/></svg>';
+const brand = (label: string) => `<div class="brand"><span class="f">${FLAME}</span><span class="w">${DROP}</span><span>${label}</span></div>`;
 
 export function hideUi() {
   const el = root();
@@ -23,7 +25,6 @@ function card(html: string) {
   el.innerHTML = `<div class="card">${html}</div>`;
 }
 
-/** Punto de entrada: pide login si hace falta y luego muestra la mesa. */
 export async function openOnline(scene: Phaser.Scene) {
   if (!net.token) return loginScreen(scene);
   try {
@@ -39,13 +40,12 @@ export async function openOnline(scene: Phaser.Scene) {
 }
 
 function errorScreen(scene: Phaser.Scene) {
-  card(`<h2>Sin conexión</h2><p>No pude conectar con el servidor<br><small>${esc(API)}</small></p>
-    <button id="retry">Reintentar</button><button id="back" class="ghost">← Volver</button>`);
+  card(`${brand('Sin conexión')}<h2>No hay señal</h2>
+    <p>No pude conectar con el servidor.<br><small>${esc(API)}</small></p>
+    <button id="retry" class="lagoon">Reintentar</button><button id="back" class="ghost">Volver</button>`);
   $('retry').onclick = () => void openOnline(scene);
   $('back').onclick = hideUi;
 }
-
-// ───────────────────────────────────── login ─────────────────────────────────────
 
 let gsiPromise: Promise<void> | null = null;
 function loadGsi(): Promise<void> {
@@ -60,18 +60,19 @@ function loadGsi(): Promise<void> {
 }
 
 async function loginScreen(scene: Phaser.Scene) {
-  card(`<h2>Entrar</h2><p id="msg">Cargando…</p><div id="g" style="display:flex;justify-content:center"></div><div id="dev"></div>
-    <button id="back" class="ghost">← Volver</button>`);
+  card(`${brand('Fuego y Agua')}<h2>Entra y juega</h2>
+    <p>Inicia sesión para crear una mesa y jugar con tu pareja, cada quien desde su celular.</p>
+    <div id="g" style="display:flex;justify-content:center;min-height:44px"></div><p id="msg" class="err"></p>
+    <button id="back" class="ghost">Volver</button>`);
   $('back').onclick = hideUi;
 
-  let cfg: { googleClientId: string | null; devLogin: boolean };
+  let cfg: { googleClientId: string | null };
   try {
     cfg = await api('/config');
   } catch {
     return errorScreen(scene);
   }
   const msg = $('msg');
-  msg.textContent = '';
   const done = (d: { token: string; user: { name: string; picture?: string | null } }) => {
     net.setSession(d.token, d.user);
     void tableScreen(scene);
@@ -90,32 +91,14 @@ async function loginScreen(scene: Phaser.Scene) {
           }
         },
       });
-      google.accounts.id.renderButton($('g'), { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with' });
+      google.accounts.id.renderButton($('g'), { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'continue_with', width: 330 });
     } catch {
       msg.textContent = 'No se pudo cargar el login de Google';
     }
+  } else {
+    msg.textContent = 'El inicio de sesión con Google no está configurado.';
   }
-
-  if (cfg.devLogin) {
-    $('dev').innerHTML = `<small>Modo prueba · solo desarrollo</small>
-      <input id="name" placeholder="Tu nombre" maxlength="30" /><button id="devgo">Entrar sin Google</button>`;
-    const go = async () => {
-      const name = (($('name') as HTMLInputElement).value || '').trim();
-      if (!name) return;
-      try {
-        done(await api('/auth/dev', 'POST', { name }));
-      } catch {
-        msg.textContent = 'No se pudo entrar';
-      }
-    };
-    $('devgo').onclick = go;
-    $('name').addEventListener('keydown', (e) => e.key === 'Enter' && void go());
-  }
-
-  if (!cfg.googleClientId && !cfg.devLogin) msg.textContent = 'Falta configurar GOOGLE_CLIENT_ID en el backend.';
 }
-
-// ─────────────────────────────────── mesa de juego ───────────────────────────────────
 
 interface Couple {
   id: number;
@@ -133,17 +116,19 @@ async function tableScreen(scene: Phaser.Scene) {
   }
   if (couple) return lobbyScreen(scene, couple);
 
-  card(`<h2>Hola, ${esc(net.user?.name ?? '')}</h2>
+  card(`${brand('Mesa de juego')}<h2>Hola, ${esc((net.user?.name ?? '').split(' ')[0])}</h2>
     <p>Crea una mesa y pásale el código a tu pareja, o únete con el código que te dio.</p>
-    <button id="create">Crear mesa</button>
-    <input id="code" placeholder="CÓDIGO" maxlength="6" style="text-transform:uppercase;text-align:center;letter-spacing:6px" />
-    <button id="join">Unirme a una mesa</button><p id="msg" class="err"></p>
-    <button id="out" class="ghost">Cerrar sesión</button><button id="back" class="ghost">← Volver</button>`);
+    <button id="create">Crear una mesa</button>
+    <div class="row"><input id="code" class="code-in" placeholder="CÓDIGO" maxlength="6" autocomplete="off" />
+    <button id="join" class="lagoon" style="flex:0 0 auto;width:auto">Unirme</button></div>
+    <p id="msg" class="err"></p>
+    <div class="row"><button id="back" class="ghost">Volver</button><button id="out" class="ghost">Cerrar sesión</button></div>`);
   const msg = $('msg');
   $('back').onclick = hideUi;
   $('out').onclick = () => {
     net.logout();
     hideUi();
+    scene.scene.restart();
   };
   $('create').onclick = async () => {
     try {
@@ -173,7 +158,7 @@ async function syncProgress() {
     const rows = await api<{ level: number; best_time_ms: number; gems: number; stars: number }[]>('/progress');
     rows.forEach((r) => record(r.level, r.best_time_ms, r.gems, r.stars));
   } catch {
-    /* sin conexión: se usa el progreso local */
+    return;
   }
 }
 
@@ -195,20 +180,24 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
   const draw = () => {
     const role = net.role ?? couple.role;
     const connected = net.code !== null;
-    card(`<h2>Tu mesa</h2>
-      <div class="code" id="codetxt">${esc(couple.code)}</div>
+    const you = role === 'fire' ? 'fire' : 'water';
+    const other = role === 'fire' ? 'water' : 'fire';
+    const slot = (kind: string, name: string, on: boolean, status: string) =>
+      `<div class="slot ${kind} ${on ? 'on' : 'off'}"><div class="av">${kind === 'fire' ? FLAME : DROP}</div><b>${name}</b><em>${status}</em></div>`;
+    card(`${brand('Tu mesa')}<h2>Mesa lista</h2>
+      <div class="code" title="Código de la mesa">${[...couple.code].map((c) => `<span>${esc(c)}</span>`).join('')}</div>
       <button id="copy" class="ghost">Copiar código</button>
-      <p>Eres <b>${role === 'fire' ? 'Fuego' : 'Agua'}</b></p>
-      <p class="status ${net.peerOnline ? 'ok' : ''}">${
-        !connected ? 'Conectando…' : net.peerOnline ? 'Tu pareja está aquí' : 'Esperando a tu pareja…'
-      }</p>
-      <button id="go" ${net.peerOnline ? '' : 'disabled'}>Empezar</button>
-      <button id="pick" class="ghost" ${net.peerOnline ? '' : 'disabled'}>Elegir nivel</button>
-      <button id="leave" class="ghost">Salir de la mesa</button>
-      <button id="back" class="ghost">← Menú</button>`);
+      <div class="slots">
+        ${slot(you, 'Tú', connected, connected ? 'Conectado' : 'Conectando')}
+        ${slot(other, 'Tu pareja', connected && net.peerOnline, net.peerOnline ? 'Aquí contigo' : 'Esperando')}
+      </div>
+      <p>Juegas como <b>${role === 'fire' ? 'Fuego' : 'Agua'}</b>.</p>
+      <div class="row"><button id="go" ${net.peerOnline ? '' : 'disabled'}>Empezar</button>
+      <button id="pick" class="lagoon" ${net.peerOnline ? '' : 'disabled'}>Elegir nivel</button></div>
+      <div class="row"><button id="back" class="link">Menú</button><button id="leave" class="link">Salir de la mesa</button></div>`);
     $('copy').onclick = () => {
       void navigator.clipboard?.writeText(couple.code);
-      $('copy').textContent = '¡Copiado!';
+      $('copy').textContent = '¡Código copiado!';
     };
     $('go').onclick = () => {
       const lvl = nextLevelIndex(LEVELS.length);
@@ -227,7 +216,7 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple) {
       try {
         await api('/couple/leave', 'POST');
       } catch {
-        /* ignorar */
+        return;
       }
       void tableScreen(scene);
     };

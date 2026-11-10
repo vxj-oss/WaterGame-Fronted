@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client';
 
-// URL del backend: VITE_API_URL en producción; en local, el mismo host que sirve el juego (así funciona desde el celular).
 export const API = (import.meta.env.VITE_API_URL as string | undefined) ?? `http://${location.hostname}:4010`;
 
 export type Role = 'fire' | 'water';
@@ -12,7 +11,6 @@ class Net {
   role: Role | null = null;
   code: string | null = null;
   peerOnline = false;
-  /** Al volver al menú, reabrir la pantalla de la mesa. */
   reopenLobby = false;
 
   private socket: Socket | null = null;
@@ -24,7 +22,6 @@ class Net {
       const u = localStorage.getItem('wf-user');
       if (u) this.user = JSON.parse(u);
     } catch {
-      /* sin localStorage */
     }
   }
 
@@ -35,7 +32,6 @@ class Net {
       localStorage.setItem('wf-token', token);
       localStorage.setItem('wf-user', JSON.stringify(user));
     } catch {
-      /* sin localStorage */
     }
   }
 
@@ -47,11 +43,9 @@ class Net {
       localStorage.removeItem('wf-token');
       localStorage.removeItem('wf-user');
     } catch {
-      /* sin localStorage */
     }
   }
 
-  /** Suscribe un manejador. Devuelve la función para cancelar la suscripción. */
   on(ev: string, fn: Fn): () => void {
     if (!this.subs.has(ev)) this.subs.set(ev, new Set());
     this.subs.get(ev)!.add(fn);

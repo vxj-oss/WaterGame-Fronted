@@ -1,5 +1,3 @@
-// Progreso guardado en el navegador. Más adelante se sincroniza con el backend.
-
 export interface LevelRecord {
   stars: number;
   bestMs: number;
@@ -16,7 +14,6 @@ function load(): SaveData {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as SaveData;
   } catch {
-    /* sin localStorage o datos dañados */
   }
   return { levels: {} };
 }
@@ -25,7 +22,6 @@ function store(d: SaveData) {
   try {
     localStorage.setItem(KEY, JSON.stringify(d));
   } catch {
-    /* sin localStorage */
   }
 }
 

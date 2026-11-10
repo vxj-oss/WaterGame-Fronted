@@ -1,30 +1,18 @@
-/**
- * Verificador de niveles: demuestra que cada nivel se puede completar.
- *
- * Simula la física del juego (gravedad, salto, colisiones) con valores un poco más exigentes que los
- * reales, calcula a dónde puede llegar cada jugador y busca (Dijkstra) una secuencia conjunta de
- * acciones —botones, palancas, ascensores, compuertas, cajas— que lleve a los dos a sus puertas.
- *
- * Uso:   npx tsx tools/verify-levels.ts            (todos los niveles)
- *        npx tsx tools/verify-levels.ts 4          (solo el nivel 4, numerado desde 1)
- *        npx tsx tools/verify-levels.ts 4 --map    (además dibuja a dónde llega cada jugador)
- */
 import { LEVELS } from '../src/levels';
 import { COLS, ROWS, TILE } from '../src/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
-// ── Física: un poco peor que la real (V0 450, SPEED 160) para dejar margen a los jugadores ──
 const DT = 1 / 60;
 const GRAV = 900;
 const V0 = 440;
 const SPEED = 150;
 const CUT = 200;
-const HW = 12; // medio ancho del jugador
-const HH = 15; // media altura del jugador
+const HW = 12;
+const HH = 15;
 const W = COLS * TILE;
 const H = ROWS * TILE;
-const STEP = 8; // resolución horizontal de las posiciones
-const HAZ_PAD = 8; // margen de seguridad alrededor de los charcos: el verificador exige pasar a ≥8px
+const STEP = 8;
+const HAZ_PAD = 8;
 
 type Role = 'fire' | 'water';
 interface R { l: number; t: number; r: number; b: number }
@@ -83,7 +71,6 @@ function parse(lvIndex: number): Ctx {
   return c;
 }
 
-// ── Geometría (cambia con los grupos activos y la posición de las cajas) ──
 function geom(c: Ctx, act: number, boxCols: number[]): Geom {
   const key = act + 16 * boxCols.reduce((k, b, i) => k + b * 32 ** i, 0);
   let g = c.geoms.get(key);
@@ -115,7 +102,6 @@ function hit(c: Ctx, g: Geom, l: number, t: number, r: number, b: number, skipBo
 const hitP = (c: Ctx, g: Geom, x: number, yc: number, skipBoxes = false) => hit(c, g, x - HW, yc - HH, x + HW, yc + HH, skipBoxes);
 const supported = (c: Ctx, g: Geom, x: number, yc: number) => hit(c, g, x - HW, yc - HH + 1, x + HW, yc + HH + 1);
 
-// ── Nodos: posición de pie (x múltiplo de STEP, pies sobre una fila de tiles) ──
 const nodeId = (x: number, yc: number) => Math.round(x / STEP) * 32 + Math.round((yc + HH) / TILE);
 const nodeX = (n: number) => Math.floor(n / 32) * STEP;
 const nodeYc = (n: number) => (n % 32) * TILE - HH;
@@ -125,7 +111,6 @@ const deadAt = (c: Ctx, role: Role, x: number, yc: number) => {
   return (role === 'fire' ? c.hazF : c.hazW).some((h) => ov(rc, h));
 };
 
-/** Simula un salto o una caída. Devuelve el nodo donde aterriza, o null si muere / no aterriza. */
 function simulate(c: Ctx, g: Geom, role: Role, x: number, yc: number, o: Opts): { node: number; frames: number } | null {
   let vy = o.jump ? -V0 : 0;
   const startRect = rectOf(x, yc);
@@ -166,7 +151,6 @@ function simulate(c: Ctx, g: Geom, role: Role, x: number, yc: number, o: Opts): 
       }
       return null;
     }
-    // Cruzar una palanca en el aire la activaría sin querer: no se permite.
     const rc = rectOf(x, yc);
     for (let i = 0; i < c.levers.length; i++) if (!ignoreLever[i] && ov(rc, c.levers[i].z)) return null;
   }
@@ -186,12 +170,10 @@ function transitions(c: Ctx, g: Geom, role: Role, node: number): Tr[] {
     if (!o || o.cost > t.cost) best.set(k, t);
   };
 
-  // Caminar un paso, empujar una caja o caerse por el borde.
   for (const d of [-1, 1]) {
     const nx = x + d * STEP;
     if (hitP(c, g, nx, yc)) {
       if (!hitP(c, g, nx, yc, true)) {
-        // solo choca con una caja: ¿se puede empujar?
         const bi = g.boxRects.findIndex((b) => ov(rectOf(nx, yc), b));
         if (bi >= 0 && Math.abs(yc + HH - g.boxRects[bi].b) < 1) {
           const col = g.boxCols[bi] + d;
@@ -216,7 +198,6 @@ function transitions(c: Ctx, g: Geom, role: Role, node: number): Tr[] {
     }
   }
 
-  // Saltos con distintas direcciones, momentos de arranque/parada y salto corto.
   for (const dir of [-1, 0, 1]) {
     for (const cut of [Infinity, 10]) {
       for (const start of dir ? [0, 15, 30] : [0]) {
@@ -234,7 +215,6 @@ function transitions(c: Ctx, g: Geom, role: Role, node: number): Tr[] {
   return list;
 }
 
-// ── Búsqueda conjunta ──
 interface St { f: number; w: number; lev: number; box: number[] }
 
 function activeMask(c: Ctx, st: St): number {
@@ -247,7 +227,6 @@ function activeMask(c: Ctx, st: St): number {
   return act;
 }
 
-/** Tras un cambio, mueve a quien va en un ascensor y hace caer a quien se quedó sin suelo. */
 function settle(c: Ctx, st: St, curAct: number, curBox: number[]): St | null {
   for (let it = 0; it < 6; it++) {
     const act = activeMask(c, st);
@@ -352,7 +331,6 @@ function solve(lvIndex: number, maxStates = 3_000_000): Result {
       const mine = role === 'fire' ? st.f : st.w;
       for (const tr of transitions(c, g, role, mine)) {
         let lev = st.lev;
-        // Entrar en una palanca la alterna.
         const oldR = rectOf(nodeX(mine), nodeYc(mine)), newR = rectOf(nodeX(tr.to), nodeYc(tr.to));
         for (const lv of c.levers) if (!ov(oldR, lv.z) && ov(newR, lv.z)) lev ^= 1 << lv.g;
         const box = [...st.box];
@@ -388,8 +366,6 @@ function drawMap(lvIndex: number, res: Result) {
   console.log(rows.map((r) => r.join('')).join('\n'));
 }
 
-// ── Programa principal ──
-// DBG=1 imprime las transiciones de un nodo: DBG=1 npx tsx tools/verify-levels.ts 1 x y role
 if (process.env.DBG) {
   const [, , lvArg, xs, feetRow, role] = process.argv;
   const c = parse(Number(lvArg) - 1);
@@ -427,6 +403,5 @@ LEVELS.forEach((lv, i) => {
   if (wantMap || !res.ok) if (only) drawMap(i, res);
 });
 if (failed) { console.log(`\n${failed} nivel(es) sin solución`); process.exit(1); }
-// El tiempo meta de cada nivel (par) se guarda para que el juego lo use.
 if (!only) writeFileSync(new URL('../src/pars.json', import.meta.url), JSON.stringify(pars, null, 2) + '\n');
 console.log('\nTodos los niveles se pueden completar ✔');

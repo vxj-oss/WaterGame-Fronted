@@ -6,20 +6,22 @@ import { showTouch, touch } from '../touch';
 import { sfx } from '../audio';
 import { record } from '../save';
 import { api, net } from '../net';
-import { C, CSS, SIZE } from '../theme';
-import { display, label, makeButton, text, underline } from '../ui';
+import { CSS } from '../theme';
+import { button, circleButton, display, modal, Modal, pill, text } from '../ui';
+import { applyCamera, VIEW } from '../view';
+import { backgroundTexture } from '../gfx';
 
 const SPEED = 160;
 const JUMP = -450;
-const COYOTE = 90; // ms para poder saltar justo después de dejar una plataforma
-const BUFFER = 110; // ms que se recuerda un salto presionado un poco antes de aterrizar
+const COYOTE = 90;
+const BUFFER = 110;
 const LIFT_SPEED = 110;
 const PUSH = 95;
-const NET_MS = 50; // cada cuánto se envía el estado en línea (20 veces por segundo)
+const NET_MS = 50;
 const W = COLS * TILE;
 const H = ROWS * TILE;
 const CX = W / 2;
-const CY = TOP + H / 2; // centro en coordenadas de pantalla
+const CY = TOP + H / 2;
 
 type Role = 'fire' | 'water';
 type Keys = Record<'up' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
@@ -34,11 +36,6 @@ interface Lever { group: number; zone: Phaser.Geom.Rectangle; stick: Rect; insid
 interface Gate { group: number; rect: Rect }
 interface Lift { group: number; rect: Rect; baseY: number; topY: number }
 
-/**
- * Modo en línea: cada celular controla SOLO a su personaje (según su rol) y ve al otro como un "fantasma"
- * que sigue la posición recibida. El anfitrión (fuego) calcula las cajas, botones y palancas y las
- * transmite; el invitado (agua) aplica ese estado. Muertes, gemas y victoria viajan como eventos.
- */
 export class LevelScene extends Phaser.Scene {
   private levelIndex = 0;
   private online = false;
@@ -61,7 +58,11 @@ export class LevelScene extends Phaser.Scene {
   private arrows!: Keys;
   private mode: 'playing' | 'dead' | 'won' = 'playing';
   private paused = false;
-  private pauseUi: Phaser.GameObjects.GameObject[] = [];
+  private pauseModal: Modal | null = null;
+  private bg!: Phaser.GameObjects.Image;
+  private hudLeft!: { img: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text };
+  private hudRight: Phaser.GameObjects.GameObject[] = [];
+  private tagW = 0;
   private gems = 0;
   private totalGems = 0;
   private elapsed = 0;
@@ -70,7 +71,6 @@ export class LevelScene extends Phaser.Scene {
   private buffer: Record<Role, number> = { fire: 0, water: 0 };
   private prevUp: Record<Role, boolean> = { fire: false, water: false };
   private trails: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
-  // en línea
   private remoteState: { x: number; y: number; f: boolean; d: number } | null = null;
   private remoteAtDoor = false;
   private netActive: Record<number, boolean> = {};
@@ -101,7 +101,7 @@ export class LevelScene extends Phaser.Scene {
     this.leverCool = 0;
     this.mode = 'playing';
     this.paused = false;
-    this.pauseUi = [];
+    this.pauseModal = null;
     this.gems = 0;
     this.totalGems = 0;
     this.elapsed = 0;
@@ -131,13 +131,12 @@ export class LevelScene extends Phaser.Scene {
     return this.role === 'fire' ? this.water : this.fire;
   }
 
-  // ───────────────────────────── construcción del nivel ─────────────────────────────
-
   create() {
     const level = LEVELS[this.levelIndex];
-    this.cameras.main.setScroll(0, -TOP).setBackgroundColor('#1b1410');
+    applyCamera(this, W / 2, H / 2 - TOP / 2);
+    this.cameras.main.setBackgroundColor('#0b1b24');
     this.physics.world.setBounds(0, 0, W, H);
-    this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setDepth(-10);
+    this.bg = this.add.image(-VIEW.ox, -VIEW.oy - TOP, backgroundTexture(this, VIEW.w, VIEW.h)).setOrigin(0).setDepth(-10).setDisplaySize(VIEW.w, VIEW.h);
 
     const walls = this.physics.add.staticGroup();
     const lava = this.physics.add.staticGroup();
@@ -192,13 +191,11 @@ export class LevelScene extends Phaser.Scene {
       this.makeTrail(this.water, [0x2fa8ff, 0x9fe0ff, 0xffffff]),
     ];
 
-    // En línea: el otro jugador es un "fantasma" sin gravedad que sigue la posición recibida.
     if (this.online) {
       const rb = this.remote.body as Body;
       rb.setAllowGravity(false);
       rb.setImmovable(true);
       this.remote.setCollideWorldBounds(false);
-      // El invitado no simula las cajas: las recibe del anfitrión (inmóviles y sólidas).
       if (!this.isHost) {
         for (const b of this.boxes) {
           b.setImmovable(true);
@@ -207,7 +204,6 @@ export class LevelScene extends Phaser.Scene {
       }
     }
 
-    // Colisiones
     const movers: (Spr | Img)[] = this.online
       ? [this.local, ...(this.isHost ? this.boxes : [])]
       : [...this.players, ...this.boxes];
@@ -225,7 +221,6 @@ export class LevelScene extends Phaser.Scene {
       }
     }
 
-    // Peligros y gemas: solo cuentan para el jugador local (el otro lo calcula su propio celular).
     const die = () => this.die(true);
     const mine = (r: Role) => !this.online || this.role === r;
     if (mine('fire')) {
@@ -238,7 +233,6 @@ export class LevelScene extends Phaser.Scene {
     }
     this.physics.add.overlap(this.online ? this.local : this.players, goo, die);
 
-    // Entrada
     const kb = this.input.keyboard!;
     this.wasd = kb.addKeys({ up: 'W', left: 'A', right: 'D' }) as Keys;
     const c = kb.createCursorKeys();
@@ -248,18 +242,31 @@ export class LevelScene extends Phaser.Scene {
     kb.on('keydown-R', () => this.goto(this.levelIndex));
     kb.on('keydown-M', () => sfx.toggleMute());
 
-    // HUD: barra superior transparente con una línea hairline, todo en mono mayúsculas.
-    this.add.rectangle(0, 0, W, TOP, C.void).setOrigin(0).setScrollFactor(0).setDepth(30);
-    this.add.rectangle(0, TOP, W, 1, C.frost, 0.15).setOrigin(0, 0.5).setScrollFactor(0).setDepth(31);
-    const who = this.online ? ` · ${this.role === 'fire' ? 'Fuego' : 'Agua'}` : '';
-    label(this, 16, TOP / 2, `Nivel ${String(this.levelIndex + 1).padStart(2, '0')} · ${level.name}${who}`, { fontSize: SIZE.caption })
-      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(31);
-    this.hud = text(this, CX, TOP / 2, '', { fontSize: SIZE.caption }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
-    makeButton(this, W - 56, TOP / 2, this.online ? 'Menú' : 'Pausa', () => (this.online ? this.toSelect() : this.togglePause()), { w: 88, h: 26, size: '13px', depth: 31, fixed: true });
+    const who = this.online ? (this.role === 'fire' ? '  🔥' : '  💧') : '';
+    const tag = `Nivel ${this.levelIndex + 1} · ${level.name}${who}`;
+    const probe = text(this, 0, -99, tag, { fontSize: '15px' });
+    const tagW = probe.width + 34;
+    probe.destroy();
+    const hy = -TOP / 2;
+    this.tagW = tagW;
+    this.hudLeft = pill(this, -VIEW.ox + 12, hy, tagW, 30, tag, { size: '15px', depth: 31, originX: 0 });
+    this.hud = pill(this, W / 2, hy, 210, 30, '', { size: '16px', depth: 31 }).label;
+    this.hudRight = circleButton(this, W + VIEW.ox - 28, hy, this.online ? '☰' : '❚❚', () => (this.online ? this.toSelect() : this.togglePause()), { size: 32, depth: 31 });
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.relayout, this);
+    this.events.once('shutdown', () => this.scale.off(Phaser.Scale.Events.RESIZE, this.relayout, this));
 
     showTouch(true);
     this.events.once('shutdown', () => showTouch(false));
     if (this.online) this.setupOnline();
+  }
+
+  private relayout() {
+    applyCamera(this, W / 2, H / 2 - TOP / 2);
+    this.bg.setTexture(backgroundTexture(this, VIEW.w, VIEW.h)).setPosition(-VIEW.ox, -VIEW.oy - TOP).setDisplaySize(VIEW.w, VIEW.h);
+    const lx = -VIEW.ox + 12 + this.tagW / 2;
+    this.hudLeft.img.setX(lx);
+    this.hudLeft.label.setX(lx);
+    this.hudRight.forEach((o) => (o as Phaser.GameObjects.Image).setX(W + VIEW.ox - 28));
   }
 
   private addBox(x: number, y: number) {
@@ -316,8 +323,6 @@ export class LevelScene extends Phaser.Scene {
       .setDepth(4);
   }
 
-  // ───────────────────────────────── bucle de juego ─────────────────────────────────
-
   update(_t: number, dt: number) {
     if (this.mode !== 'playing' || this.paused) return;
     this.elapsed += dt;
@@ -329,7 +334,6 @@ export class LevelScene extends Phaser.Scene {
       u: k.up.isDown || (on && touch.role === role && touch.up),
     });
     if (this.online) {
-      // Tu personaje se mueve con WASD o con las flechas.
       const a = readKeys(this.wasd, this.role);
       const b = readKeys(this.arrows, this.role);
       this.drive(this.role, this.local, a.l || b.l, a.r || b.r, a.u || b.u, dt);
@@ -369,7 +373,7 @@ export class LevelScene extends Phaser.Scene {
       this.coyote[role] = 0;
       sfx.jump();
     }
-    if (!up && body.velocity.y < -200) p.setVelocityY(-200); // salto corto si sueltas la tecla
+    if (!up && body.velocity.y < -200) p.setVelocityY(-200);
   }
 
   private pushBox(p: Spr, b: Img) {
@@ -379,7 +383,6 @@ export class LevelScene extends Phaser.Scene {
     else if (dir < 0 && pb.touching.left) b.setVelocityX(-PUSH);
   }
 
-  /** El anfitrión empuja las cajas con el fantasma de su pareja (no hay colisión física con él). */
   private ghostPush() {
     const d = this.remote.getData('dir') as number;
     if (!d) return;
@@ -397,7 +400,6 @@ export class LevelScene extends Phaser.Scene {
     const pressed: Record<number, number> = {};
     const guest = this.online && !this.isHost;
 
-    // Botones: activos mientras algo (jugador o caja) los pisa.
     for (const b of this.buttons) {
       const now = bounds.some((r) => Phaser.Geom.Rectangle.Overlaps(r, b.zone));
       if (now !== b.pressed) {
@@ -408,7 +410,6 @@ export class LevelScene extends Phaser.Scene {
       if (now) pressed[b.group] = (pressed[b.group] ?? 0) + 1;
     }
 
-    // Palancas: solo cambian al ENTRAR; en línea las decide el anfitrión.
     this.leverCool -= dt;
     for (const lv of this.levers) {
       if (guest) {
@@ -429,14 +430,12 @@ export class LevelScene extends Phaser.Scene {
     const active = (g: number) => (guest ? !!this.netActive[g] : (pressed[g] ?? 0) > 0 || !!this.leverOn[g]);
     this.activeNow = [1, 2, 3, 4].map(active);
 
-    // Compuertas: se abren (sin colisión) cuando su grupo está activo.
     for (const g of this.gates) {
       const open = active(g.group);
       (g.rect.body as Phaser.Physics.Arcade.StaticBody).enable = !open;
       g.rect.setAlpha(open ? 0.15 : 0.95);
     }
 
-    // Ascensores: suben mientras su grupo está activo y bajan si no.
     for (const l of this.lifts) {
       const body = l.rect.body as Body;
       const target = active(l.group) ? l.topY : l.baseY;
@@ -505,8 +504,6 @@ export class LevelScene extends Phaser.Scene {
     if (this.online && mine) net.send('event', { t: 'gem', id });
   }
 
-  // ─────────────────────────────────── en línea ───────────────────────────────────
-
   private setupOnline() {
     touch.role = this.role;
     const roleBtn = document.getElementById('role');
@@ -526,7 +523,6 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private netStep(dt: number) {
-    // El fantasma persigue la posición recibida (con velocidad, para que empuje cajas y pulse botones).
     const g = this.remote;
     const rs = this.remoteState;
     if (rs) {
@@ -590,21 +586,13 @@ export class LevelScene extends Phaser.Scene {
     if (this.mode !== 'playing') return;
     this.mode = 'dead';
     this.physics.pause();
-    this.panel(560, 220, 50);
-    display(this, CX - 240, CY - 40, 'Tu pareja se desconectó', '34px').setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
-    underline(this, CX - 240, CY - 8, 150).setScrollFactor(0).setDepth(51);
-    makeButton(this, CX - 240, CY + 50, 'Volver a la mesa', () => {
+    const m = modal(this, { w: 520, h: 270, title: 'Tu pareja salió', subtitle: 'Se desconectó de la partida', depth: 50, closable: false });
+    m.track(...button(this, m.cx, m.cy + 62, 'Volver a la mesa', () => {
       net.reopenLobby = true;
       this.scene.start('Menu');
-    }, { w: 300, h: 46, size: '15px', depth: 51, fixed: true, align: 'left' });
+    }, { w: 300, h: 56, depth: 53, fixed: true }));
   }
 
-  /** Panel plano: vacío negro con un borde hairline (sin sombras). */
-  private panel(w: number, h: number, depth = 40) {
-    return this.add.rectangle(CX, CY, w, h, C.void).setStrokeStyle(1, C.frost, 0.7).setScrollFactor(0).setDepth(depth);
-  }
-
-  /** Reinicia/cambia de nivel. En línea, tu pareja te sigue. */
   private goto(level: number) {
     if (this.online) net.send('event', { t: 'goto', level });
     this.scene.restart({ level, online: this.online });
@@ -615,8 +603,6 @@ export class LevelScene extends Phaser.Scene {
     this.scene.start('LevelSelect', { online: this.online });
   }
 
-  // ─────────────────────────────── muerte, victoria, pausa ───────────────────────────────
-
   private die(mine: boolean) {
     if (this.mode !== 'playing') return;
     this.mode = 'dead';
@@ -625,10 +611,13 @@ export class LevelScene extends Phaser.Scene {
     this.trails.forEach((t) => t.stop());
     this.fire.setTint(0x555555);
     this.water.setTint(0x555555);
-    this.cameras.main.shake(220, 0.01);
+    this.cameras.main.shake(220, 0.012);
     sfx.die();
-    this.add.rectangle(CX, CY, 460, 74, C.void).setStrokeStyle(1, C.frost, 0.7).setScrollFactor(0).setDepth(40);
-    label(this, CX, CY, 'Inténtenlo otra vez', { fontSize: '20px' }).setOrigin(0.5).setScrollFactor(0).setDepth(41);
+    const banner = pill(this, W / 2, H / 2 - TOP / 2, 460, 72, 'Inténtenlo otra vez', { size: '28px', fill: 'rgba(255,77,109,0.94)', edge: 'rgba(255,255,255,0.5)', depth: 40, fixed: true });
+    [banner.img, banner.label].forEach((o) => {
+      o.setScale(0.6).setAlpha(0);
+      this.tweens.add({ targets: o, scale: 1, alpha: 1, duration: 260, ease: 'Back.out' });
+    });
     this.time.delayedCall(900, () => this.scene.restart({ level: this.levelIndex, online: this.online }));
   }
 
@@ -650,44 +639,67 @@ export class LevelScene extends Phaser.Scene {
     const last = this.levelIndex + 1 >= LEVELS.length;
     const next = () => (last ? this.toSelect() : this.goto(this.levelIndex + 1));
 
-    const L = CX - 300; // borde izquierdo del contenido
-    const fixed = <T extends Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.ScrollFactor>(o: T) => o.setScrollFactor(0);
-    this.panel(680, 400);
-    const title = fixed(display(this, L, CY - 150, 'Nivel completado', '50px').setOrigin(0, 0.5).setDepth(41));
-    fixed(underline(this, L, CY - 118, title.width * 0.45).setDepth(41));
-    fixed(text(this, L, CY - 78, '★'.repeat(stars) + '☆'.repeat(3 - stars), { fontSize: '34px' }).setOrigin(0, 0.5).setDepth(41));
-    fixed(label(this, L, CY - 40, `Tiempo ${secs}s · Meta ${level.par}s · Gemas ${this.gems}/${this.totalGems}`, { fontSize: SIZE.caption, color: CSS.ash }).setOrigin(0, 0.5).setDepth(41));
-    fixed(display(this, L, CY + 10, MESSAGES[this.levelIndex % MESSAGES.length], '22px', { wordWrap: { width: 600 }, lineSpacing: 6 }).setOrigin(0, 0.5).setDepth(41));
+    const m = modal(this, { w: 700, h: 470, title: '¡Nivel completado!', subtitle: `Nivel ${this.levelIndex + 1} · ${level.name}`, depth: 40, closable: false });
+    const d = m.depth + 3;
 
-    const bY = CY + 135;
-    const o = { w: 190, h: 44, size: '14px', depth: 41, fixed: true };
-    makeButton(this, L + 95, bY, 'Reintentar', () => this.goto(this.levelIndex), o);
-    makeButton(this, L + 300, bY, 'Niveles', () => this.toSelect(), o);
-    makeButton(this, L + 505, bY, last ? 'Terminar' : 'Siguiente', next, o);
+    for (let i = 0; i < 3; i++) {
+      const s = text(this, m.cx + (i - 1) * 96, m.cy - 92, '★', { fontFamily: 'sans-serif', fontStyle: '700', fontSize: '84px', color: i < stars ? CSS.gold : '#2d5668' }).setOrigin(0.5).setDepth(d);
+      s.setScale(0).setAngle(-20);
+      this.tweens.add({ targets: s, scale: 1, angle: 0, duration: 420, delay: 260 + i * 240, ease: 'Back.out' });
+      m.track(s);
+    }
+
+    const chips: [string, string][] = [['Tiempo', `${secs} s`], ['Meta', `${level.par} s`], ['Gemas', `${this.gems}/${this.totalGems}`]];
+    chips.forEach(([k, v], i) => {
+      const p = pill(this, m.cx + (i - 1) * 200, m.cy - 6, 184, 40, `${k}  ${v}`, { size: '17px', depth: d, fixed: true });
+      m.track(p.img, p.label);
+    });
+
+    const msg = display(this, m.cx, m.cy + 62, MESSAGES[this.levelIndex % MESSAGES.length], '22px', { color: CSS.text, align: 'center', wordWrap: { width: 560 }, lineSpacing: 6, fontFamily: 'Nunito, sans-serif', fontStyle: '700' }).setOrigin(0.5).setDepth(d);
+    m.track(msg);
+
+    const by = m.cy + 168;
+    m.track(
+      ...button(this, m.cx - 214, by, 'Reintentar', () => this.goto(this.levelIndex), { w: 190, h: 56, variant: 'ghost', size: '19px', depth: d, fixed: true }),
+      ...button(this, m.cx, by, 'Niveles', () => this.toSelect(), { w: 190, h: 56, variant: 'lagoon', size: '19px', depth: d, fixed: true }),
+      ...button(this, m.cx + 214, by, last ? 'Terminar' : 'Siguiente', next, { w: 190, h: 56, size: '19px', depth: d, fixed: true }),
+    );
 
     this.time.delayedCall(500, () => this.input.keyboard!.once('keydown-ENTER', next));
   }
 
   private togglePause() {
     if (this.mode !== 'playing') return;
-    this.paused = !this.paused;
-    if (this.paused) {
-      this.physics.pause();
-      const L = CX - 150;
-      const bg = this.panel(380, 360);
-      const title = display(this, L, CY - 130, 'Pausa', '48px').setOrigin(0, 0.5).setScrollFactor(0).setDepth(41);
-      const ul = underline(this, L, CY - 100, title.width * 0.5).setScrollFactor(0).setDepth(41);
-      this.pauseUi.push(bg, title, ul);
-      const o = { w: 300, h: 44, size: '14px', depth: 41, fixed: true, align: 'left' as const };
-      const add = (b: Phaser.GameObjects.GameObject[]) => this.pauseUi.push(...b);
-      add(makeButton(this, L, CY - 50, 'Continuar', () => this.togglePause(), o));
-      add(makeButton(this, L, CY + 6, 'Reiniciar', () => this.goto(this.levelIndex), o));
-      add(makeButton(this, L, CY + 62, 'Niveles', () => this.toSelect(), o));
-      add(makeButton(this, L, CY + 118, sfx.isMuted() ? 'Sonido apagado' : 'Sonido encendido', () => { sfx.toggleMute(); this.togglePause(); this.togglePause(); }, o));
-    } else {
-      this.physics.resume();
-      this.pauseUi.forEach((o) => o.destroy());
-      this.pauseUi = [];
+    if (this.pauseModal) {
+      this.pauseModal.close();
+      return;
     }
+    this.paused = true;
+    this.physics.pause();
+    const m = modal(this, {
+      w: 460,
+      h: 440,
+      title: 'Pausa',
+      subtitle: 'Respiren un momento',
+      depth: 40,
+      onClose: () => {
+        this.pauseModal = null;
+        this.paused = false;
+        this.physics.resume();
+      },
+    });
+    this.pauseModal = m;
+    const d = m.depth + 3;
+    const o = { w: 340, h: 56, size: '20px', depth: d, fixed: true };
+    const sound = button(this, m.cx, m.cy + 150, sfx.isMuted() ? 'Sonido apagado' : 'Sonido encendido', () => {
+      sfx.toggleMute();
+      (sound[1] as Phaser.GameObjects.Text).setText(sfx.isMuted() ? 'Sonido apagado' : 'Sonido encendido');
+    }, { ...o, variant: 'ghost', h: 50, size: '17px' });
+    m.track(
+      ...button(this, m.cx, m.cy - 50, 'Continuar', () => m.close(), o),
+      ...button(this, m.cx, m.cy + 20, 'Reiniciar', () => this.goto(this.levelIndex), { ...o, variant: 'lagoon' }),
+      ...button(this, m.cx, m.cy + 90, 'Niveles', () => this.toSelect(), { ...o, variant: 'ghost', h: 50, size: '17px' }),
+      ...sound,
+    );
   }
 }

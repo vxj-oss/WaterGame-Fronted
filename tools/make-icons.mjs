@@ -1,5 +1,3 @@
-// Genera los iconos de la app (PNG) sin dependencias: rombo blanco sobre vacío negro.
-// Uso: node tools/make-icons.mjs
 import { deflateSync, crc32 } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
@@ -24,7 +22,6 @@ function png(size, draw) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
 
-// Dos rombos: uno rojo y uno azul, como los dos personajes, sobre negro.
 const draw = (u, v) => {
   const d = (cx, cy) => Math.abs(u - cx) + Math.abs(v - cy);
   if (d(0.37, 0.5) < 0.2) return [255, 74, 28];

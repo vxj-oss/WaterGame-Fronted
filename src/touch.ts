@@ -1,6 +1,3 @@
-// Controles táctiles (botones HTML, soportan multitouch).
-// `role` es el personaje que controlan los botones en pantalla.
-
 export const touch = {
   left: false,
   right: false,
@@ -39,12 +36,11 @@ export function setupTouchControls() {
   root.innerHTML = `
     <div class="grp"><button data-k="left">‹</button><button data-k="right">›</button></div>
     <div class="grp"><button id="role">F</button><button data-k="up">↑</button></div>`;
-  root.style.display = 'none'; // solo se muestran dentro de un nivel
+  root.style.display = 'none';
   document.body.appendChild(root);
 
   root.querySelectorAll<HTMLElement>('button[data-k]').forEach((b) => bind(b, b.dataset.k as Key));
 
-  // Botón para alternar qué personaje controlas en pantalla (útil para probar solo).
   const role = root.querySelector<HTMLElement>('#role')!;
   role.addEventListener('pointerdown', (e) => {
     e.preventDefault();
@@ -53,7 +49,6 @@ export function setupTouchControls() {
   });
 }
 
-/** Muestra u oculta los botones táctiles (solo hacen falta mientras se juega un nivel). */
 export function showTouch(on: boolean) {
   const el = document.getElementById('touch');
   if (el) el.style.display = on ? 'flex' : 'none';

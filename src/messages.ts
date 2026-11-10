@@ -1,6 +1,3 @@
-// Mensajitos que aparecen al completar un nivel (el índice coincide con el nivel).
-// Edítalos a tu gusto. Si hay más niveles que mensajes, se repiten en ciclo.
-
 export const MESSAGES: string[] = [
   'Aunque estemos lejos, juntos siempre llegamos a la meta. ♥',
   'Contigo hasta el fuego se siente tibio y el agua, un abrazo.',
