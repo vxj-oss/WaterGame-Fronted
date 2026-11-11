@@ -42,16 +42,25 @@ void fontsReady.then(() => {
   initCall();
 
   let timer: number | undefined;
-  window.addEventListener('resize', () => {
+  const sync = () => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
-      if (!computeView()) return;
-      game.scale.setGameSize(VIEW.cw, VIEW.ch);
-      for (const key of ['Menu', 'LevelSelect']) {
-        const scene = game.scene.getScene(key);
-        if (game.scene.isActive(key)) scene.scene.restart();
+      if (computeView()) {
+        game.scale.setGameSize(VIEW.cw, VIEW.ch);
+        for (const key of ['Menu', 'LevelSelect']) {
+          const scene = game.scene.getScene(key);
+          if (game.scene.isActive(key)) scene.scene.restart();
+        }
       }
-    }, 350);
+      game.scale.refresh();
+    }, 250);
+  };
+  window.addEventListener('resize', sync);
+  window.addEventListener('orientationchange', sync);
+  document.addEventListener('fullscreenchange', sync);
+  window.visualViewport?.addEventListener('resize', sync);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) sync();
   });
 
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

@@ -227,3 +227,65 @@
 }
 
 #games [hidden], #call [hidden] { display: none !important; }
+
+.g-conn { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 999px; background: rgba(255, 122, 61, 0.96); color: #fff; font-size: 13px; z-index: 6; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); pointer-events: none; }
+
+#games.busy .g-top button, #games.busy .g-layer button { pointer-events: none; }
+.draw { padding: 0 12px; }
+.draw .dside { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; }
+@media (orientation: landscape) {
+  .draw { flex-direction: row; align-items: flex-start; justify-content: center; gap: 14px; max-width: 1000px; padding: 0 28px; }
+  .draw .cwrap { width: min(60vw, calc((100dvh - 118px) * 4 / 3)); flex: 0 0 auto; min-width: 200px; }
+  .draw .dside { flex: 1; min-width: 190px; max-width: 330px; align-items: stretch; gap: 8px; }
+  .draw .dside .tools { justify-content: flex-start; gap: 6px; }
+  .draw .swatch { width: 28px; height: 28px; }
+  .draw .sz { width: 32px; height: 32px; }
+  .draw .guessrow { flex-direction: column; }
+  .draw .gl { max-height: 70px; }
+  .draw .blanks span { width: 22px; height: 30px; font-size: 20px; }
+}
+@media (orientation: portrait) {
+  .draw .cwrap { width: min(100%, calc((100dvh - 330px) * 4 / 3)); }
+  .draw { padding: 0 28px; }
+}
+
+.tf { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; padding: 0 8px; }
+.tf-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.tf-letter { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; font: 400 44px/1 var(--display); color: #fff; background: linear-gradient(160deg, #4ade80, #f43f5e); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 8px 18px rgba(0, 0, 0, 0.35); }
+.tf-note { color: var(--mute); font-size: 14px; text-align: center; flex: 1 1 200px; }
+.tf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px 10px; }
+.tf-field { display: flex; flex-direction: column; gap: 3px; }
+.tf-field span { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute); }
+.tf-in { padding: 12px 14px; font-size: 17px; }
+.tf-rev { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr); gap: 6px; align-items: center; }
+.tf-who { text-align: center; color: var(--gold); font-size: 14px; }
+.tf-cat { font-size: 13px; color: var(--mute); }
+.tf-ans { display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 0; border-radius: 12px; padding: 7px 10px; color: #fff; font: 800 15px var(--body); background: rgba(255, 255, 255, 0.1); text-align: left; min-height: 36px; }
+.tf-ans i { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-ans em { font-style: normal; background: rgba(61, 255, 160, 0.2); color: #8affc0; border-radius: 999px; padding: 2px 9px; font-size: 13px; }
+.tf-ans.zero em { background: rgba(255, 122, 138, 0.2); color: #ff9aa8; }
+.tf-ans.off i { text-decoration: line-through; opacity: 0.6; }
+.tf-ans:not(:disabled) { cursor: pointer; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18); }
+.tf-sum { text-align: center; font-size: 16px; }
+.tf-sum b { color: var(--gold); }
+@media (max-height: 520px) {
+  .tf { gap: 6px; }
+  .tf-letter { width: 48px; height: 48px; font-size: 32px; border-radius: 14px; }
+  .tf-head { gap: 10px; }
+  .tf-note { font-size: 12px; }
+  .tf-in { padding: 8px 10px; font-size: 15px; }
+  .tf-grid { grid-template-columns: repeat(3, 1fr); gap: 4px 8px; }
+  .tf-rev { gap: 4px; }
+  .tf-ans { min-height: 28px; padding: 3px 8px; font-size: 13px; }
+  .tf-cat { font-size: 11px; }
+  .tf-sum { font-size: 14px; }
+}
+@media (max-height: 520px) {
+  .tf-rev { grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr); gap: 3px 6px; }
+  .tf-ans { min-height: 24px; padding: 2px 8px; font-size: 12px; border-radius: 9px; }
+  .tf-ans em { padding: 1px 7px; font-size: 11px; }
+  .tf-who { font-size: 12px; }
+  .tf .tf-note { display: none; }
+  .tf .gbtn { padding: 8px 16px; }
+  .tf-sum { font-size: 13px; }
+}

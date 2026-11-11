@@ -1,5 +1,7 @@
 import './games.css';
+import { app } from '../app';
 import { net } from '../net';
+import { toast } from '../toast';
 import { MESSAGES } from '../messages';
 
 export type Winner = 0 | 1 | null | 'team';
@@ -73,13 +75,44 @@ export function norm(s: string) {
     .replace(/[^A-ZÑ]/g, '');
 }
 
+let lastButton = 0;
+
+document.addEventListener(
+  'click',
+  (e) => {
+    const t = e.target as Element | null;
+    if (e.isTrusted && t?.closest?.('button')) lastButton = performance.now();
+  },
+  true,
+);
+
+const byButton = () => performance.now() - lastButton < 2000;
+
 let backTrap = false;
 
 function trapBack() {
   if (backTrap) return;
   backTrap = true;
+  let pushes = 0;
+  const open = () => !!document.getElementById('games');
   window.addEventListener('popstate', () => {
-    if (document.getElementById('games')) history.pushState(null, '');
+    if (open()) history.pushState(null, '');
+  });
+  document.addEventListener(
+    'pointerdown',
+    () => {
+      if (open() && pushes < 60) {
+        pushes++;
+        history.pushState(null, '');
+      }
+    },
+    true,
+  );
+  window.addEventListener('beforeunload', (e) => {
+    if (open()) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
   });
 }
 
@@ -91,6 +124,7 @@ export function gameRoot() {
     root = document.createElement('div');
     root.id = 'games';
     document.body.appendChild(root);
+    app.game?.loop.sleep();
   }
   return root;
 }
@@ -106,6 +140,7 @@ export function closeGames() {
   current?.dispose();
   current = null;
   document.getElementById('games')?.remove();
+  app.game?.loop.wake();
 }
 
 export function launchGame(def: GameDef, mode: 'online' | 'local' | 'solo') {
@@ -133,6 +168,8 @@ class Session {
   private me: 0 | 1;
   private names: [string, string];
   private alive = true;
+  private conn!: HTMLElement;
+  private grace: number | undefined;
 
   constructor(
     private def: GameDef,
@@ -148,11 +185,11 @@ class Session {
     if (mode === 'online') {
       this.offs.push(
         net.on('event', (e: any) => this.incoming(e)),
-        net.on('peer-left', () => this.peerGone('El otro jugador se desconectó')),
-        net.on('disconnected', () => this.peerGone('Se perdió la conexión')),
-        net.on('peer-joined', () => {
-          if (this.me === 0) this.restartBoth();
-          else this.hideLayer();
+        net.on('peer-left', () => this.lost('Tu pareja perdió la conexión…')),
+        net.on('disconnected', () => this.lost('Reconectando…')),
+        net.on('peer-joined', () => this.back()),
+        net.on('joined', (p: { peerOnline?: boolean }) => {
+          if (p?.peerOnline) this.back();
         }),
       );
     }
@@ -163,10 +200,10 @@ class Session {
     const top = el('div', 'g-top');
     const back = el('button', 'g-back', '‹');
     back.setAttribute('aria-label', 'Salir');
-    back.onclick = () => this.exit();
+    back.onclick = () => this.confirm(() => this.exit());
     const home = el('button', 'g-back g-home', '⌂');
     home.setAttribute('aria-label', 'Menú principal');
-    home.onclick = () => this.home();
+    home.onclick = () => this.confirm(() => this.home());
     const title = el('div', 'g-title');
     title.textContent = this.def.name;
     const chips = el('div', 'g-chips');
@@ -190,7 +227,9 @@ class Session {
 
     this.body = el('div', 'g-body');
     this.layer = el('div', 'g-layer');
-    this.root.append(top, status, this.body, this.layer);
+    this.conn = el('div', 'g-conn');
+    this.conn.hidden = true;
+    this.root.append(top, status, this.body, this.layer, this.conn);
     this.renderChips();
   }
 
@@ -292,7 +331,29 @@ class Session {
     this.layer.innerHTML = '';
   }
 
+  private confirm(go: () => void) {
+    this.showLayer(`<div class="gpanel"><h3>¿Salir?</h3><p>Se termina la partida actual.</p>
+      <div class="grow"><button class="gbtn gold" id="gk">Seguir jugando</button><button class="gbtn ghost" id="gl">Salir</button></div></div>`);
+    (this.layer.querySelector('#gk') as HTMLElement).onclick = () => this.hideLayer();
+    (this.layer.querySelector('#gl') as HTMLElement).onclick = go;
+  }
+
+  private lost(text: string) {
+    if (!this.alive) return;
+    this.conn.textContent = text;
+    this.conn.hidden = false;
+    window.clearTimeout(this.grace);
+    this.grace = window.setTimeout(() => this.peerGone('Se perdió la conexión con tu pareja'), 12000);
+  }
+
+  private back() {
+    window.clearTimeout(this.grace);
+    this.conn.hidden = true;
+    this.hideLayer();
+  }
+
   private peerGone(text: string) {
+    this.conn.hidden = true;
     this.showLayer(`<div class="gpanel"><h3>Pausa</h3><p>${esc(text)}</p><div class="grow"><button class="gbtn ghost" id="gx">Cambiar de juego</button></div></div>`);
     (this.layer.querySelector('#gx') as HTMLElement).onclick = () => this.exit();
   }
@@ -331,12 +392,20 @@ class Session {
 
   home() {
     if (!this.alive) return;
+    if (!byButton()) {
+      toast('Se evitó una salida automática');
+      return;
+    }
     this.sys('bye');
     closeGames();
   }
 
   exit() {
     if (!this.alive) return;
+    if (!byButton()) {
+      toast('Se evitó una salida automática');
+      return;
+    }
     this.sys('bye');
     this.dispose();
     if (current === this) current = null;
@@ -345,6 +414,7 @@ class Session {
 
   dispose() {
     this.alive = false;
+    window.clearTimeout(this.grace);
     this.runCleanups();
     this.offs.forEach((o) => o());
     this.offs = [];

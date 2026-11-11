@@ -1,3 +1,5 @@
+let wantFs = true;
+
 export function isFullscreen() {
   return !!document.fullscreenElement;
 }
@@ -8,19 +10,27 @@ export async function enterFullscreen() {
     if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
     await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape');
   } catch {
+    return;
   }
 }
 
 export async function toggleFullscreen() {
-  if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
-  else await enterFullscreen();
+  if (document.fullscreenElement) {
+    wantFs = false;
+    await document.exitFullscreen().catch(() => undefined);
+  } else {
+    wantFs = true;
+    await enterFullscreen();
+  }
 }
 
 export function autoFullscreenOnTouch() {
   if (!window.matchMedia('(pointer: coarse)').matches) return;
-  const go = () => {
-    window.removeEventListener('pointerdown', go);
-    void enterFullscreen();
-  };
-  window.addEventListener('pointerdown', go, { once: true });
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      if (wantFs && !document.fullscreenElement) void enterFullscreen();
+    },
+    true,
+  );
 }

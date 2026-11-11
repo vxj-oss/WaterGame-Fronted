@@ -33,7 +33,9 @@ function start(ctx: Ctx) {
   let timerId: number | undefined;
   let pump: number | undefined;
   let next: number | undefined;
+  let watchdog: number | undefined;
   ctx.cleanup(() => {
+    window.clearTimeout(watchdog);
     window.clearInterval(timerId);
     window.clearInterval(pump);
     window.clearTimeout(next);
@@ -175,7 +177,9 @@ function start(ctx: Ctx) {
     const log = el('div', 'gl');
     const wrap = el('div', 'cwrap');
     wrap.append(c);
-    box.append(head, wrap, tools, actions, log);
+    const side = el('div', 'dside');
+    side.append(head, tools, actions, log);
+    box.append(wrap, side);
 
     addLog = (html) => log.prepend(el('div', '', html));
 
@@ -188,9 +192,13 @@ function start(ctx: Ctx) {
       paint(g, s);
       queue.push(s);
     };
+    const shell = () => c.closest('#games');
+    let calm: number | undefined;
     c.addEventListener('pointerdown', (e) => {
       if (phase !== 'draw') return;
       e.preventDefault();
+      window.clearTimeout(calm);
+      shell()?.classList.add('busy');
       try {
         c.setPointerCapture(e.pointerId);
       } catch {
@@ -209,6 +217,8 @@ function start(ctx: Ctx) {
     });
     const up = () => {
       last = null;
+      window.clearTimeout(calm);
+      calm = window.setTimeout(() => shell()?.classList.remove('busy'), 900);
     };
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
@@ -241,6 +251,8 @@ function start(ctx: Ctx) {
   const guessView = (sp: number[]) => {
     phase = 'draw';
     tries = TRIES;
+    window.clearTimeout(watchdog);
+    watchdog = window.setTimeout(() => conclude(false, '—'), (DRAW_SECONDS + GUESS_SECONDS + 12) * 1000);
     const { c, g } = makeCanvas();
     box.innerHTML = '';
     const head = el('div', 'tools');
@@ -264,7 +276,9 @@ function start(ctx: Ctx) {
     const log = el('div', 'gl');
     const wrap = el('div', 'cwrap');
     wrap.append(c);
-    box.append(head, wrap, info, left, row, log);
+    const side = el('div', 'dside');
+    side.append(head, info, left, row, log);
+    box.append(wrap, side);
 
     let waiting = false;
     const refresh = () => {
@@ -310,12 +324,13 @@ function start(ctx: Ctx) {
     if (phase === 'over') return;
     const wasDrawer = iDraw();
     phase = 'over';
+    window.clearTimeout(watchdog);
     window.clearInterval(timerId);
     window.clearInterval(pump);
     if (ok) hits++;
     if (wasDrawer) ctx.send({ end: { ok, word } });
     const note = el('div', 'gpanel');
-    note.innerHTML = `<h3>${ok ? '¡Acertaron!' : 'Se acabó'}</h3><p>La palabra era <b>${esc(word)}</b></p>`;
+    note.innerHTML = `<h3>${ok ? '¡Acertaron!' : 'Se acabó'}</h3>${word === '—' ? '' : `<p>La palabra era <b>${esc(word)}</b></p>`}`;
     box.append(note);
     status();
     next = window.setTimeout(() => {
