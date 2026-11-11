@@ -152,7 +152,8 @@
 @media (orientation: landscape) and (min-width: 760px) { .nboards { flex-direction: row; justify-content: center; align-items: flex-start; gap: 24px; } .nboard.big { width: min(46vw, calc(100dvh - 260px)); } .nboard.small { width: min(34vw, calc(100dvh - 300px), 260px); } }
 
 .draw { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 640px; }
-.draw canvas { width: 100%; max-height: calc(100dvh - 300px); aspect-ratio: 4 / 3; border-radius: 20px; background: #fff8ec; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15), 0 14px 30px rgba(0, 0, 0, 0.4); touch-action: none; cursor: crosshair; object-fit: contain; }
+.cwrap { width: min(100%, calc((100dvh - 330px) * 4 / 3)); min-width: 220px; }
+.draw canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 20px; background: #fff8ec; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15), 0 14px 30px rgba(0, 0, 0, 0.4); touch-action: none; cursor: crosshair; -webkit-user-select: none; user-select: none; }
 .tools { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .swatch { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.35); cursor: pointer; padding: 0; }
 .swatch.on { border-color: #fff; transform: scale(1.18); }
@@ -216,7 +217,7 @@
   .todcard p { font-size: 18px; }
   .ttt, .mem { width: min(100%, calc(100dvh - 150px), 420px); }
   .nboard.big { width: min(100%, calc(100dvh - 230px), 380px); }
-  .draw canvas { max-height: calc(100dvh - 220px); }
+  .cwrap { width: min(100%, calc((100dvh - 200px) * 4 / 3)); }
   .hang svg.gal { width: min(150px, 28vh); }
   .hang .word span { width: 28px; height: 38px; font-size: 24px; }
 }
@@ -224,3 +225,5 @@
   .g-chips { gap: 6px; }
   .g-title { font-size: 19px; }
 }
+
+#games [hidden], #call [hidden] { display: none !important; }

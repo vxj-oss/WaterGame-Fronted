@@ -73,9 +73,21 @@ export function norm(s: string) {
     .replace(/[^A-ZÑ]/g, '');
 }
 
+let backTrap = false;
+
+function trapBack() {
+  if (backTrap) return;
+  backTrap = true;
+  window.addEventListener('popstate', () => {
+    if (document.getElementById('games')) history.pushState(null, '');
+  });
+}
+
 export function gameRoot() {
+  trapBack();
   let root = document.getElementById('games');
   if (!root) {
+    history.pushState(null, '');
     root = document.createElement('div');
     root.id = 'games';
     document.body.appendChild(root);

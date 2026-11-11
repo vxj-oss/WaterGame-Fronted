@@ -7,6 +7,8 @@ interface Sig {
 }
 
 const FALLBACK: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+const POS_KEY = 'wf-call-pos';
+const FAB = 46;
 
 let pc: RTCPeerConnection | null = null;
 let iceServers: RTCIceServer[] | null = null;
@@ -20,34 +22,49 @@ let makingOffer = false;
 let ignoreOffer = false;
 let answered = false;
 let ringing = false;
+let open = false;
 let note = '';
+let pos = { x: -1, y: -1 };
 
 let root: HTMLElement;
+let dock: HTMLElement;
+let fab: HTMLButtonElement;
+let menu: HTMLElement;
+let vids: HTMLElement;
+let ring: HTMLElement;
 let audioEl: HTMLAudioElement;
 let remoteVideo: HTMLVideoElement;
 let localVideo: HTMLVideoElement;
 
 const CSS = `
-#call { position: fixed; inset: 0; z-index: 70; pointer-events: none; font: 800 15px Nunito, system-ui, sans-serif; color: #f7f3ea; }
-#call > * { pointer-events: auto; }
-#call .cb { position: absolute; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 999px;
-  background: rgba(8, 24, 32, 0.9); box-shadow: 0 0 0 1.5px rgba(46, 211, 230, 0.4), 0 10px 26px rgba(0, 0, 0, 0.5); }
-#call button { border: 0; cursor: pointer; color: #fff; font: 800 15px Nunito, system-ui, sans-serif; border-radius: 999px; padding: 0; min-width: 44px; height: 44px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.12); }
-#call button:active { transform: scale(0.93); }
-#call button.on { background: linear-gradient(180deg, #62e8f4, #3b8cff); }
-#call button.off { background: rgba(255, 255, 255, 0.12); opacity: 0.8; }
-#call button.end { background: linear-gradient(180deg, #ff7a8a, #e11d48); }
-#call button.go { background: linear-gradient(180deg, #ffe48f, #ffae2b); color: #3a2400; padding: 0 16px; }
-#call button.pill { padding: 0 16px; }
-#call .st { padding: 0 10px; color: #8fb4c0; font-size: 13px; max-width: 150px; line-height: 1.1; }
-#call .ring { position: absolute; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 10px 12px 10px 18px; border-radius: 999px;
-  background: rgba(8, 24, 32, 0.95); box-shadow: 0 0 0 2px #ffd166, 0 12px 30px rgba(0, 0, 0, 0.55); animation: cring 1.2s ease-in-out infinite; }
-@keyframes cring { 50% { box-shadow: 0 0 0 2px #ffd166, 0 0 26px rgba(255, 209, 102, 0.55), 0 12px 30px rgba(0, 0, 0, 0.55); } }
-#call .vids { position: absolute; right: calc(8px + env(safe-area-inset-right)); top: calc(54px + env(safe-area-inset-top)); display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-#call video { width: 132px; height: 99px; object-fit: cover; border-radius: 16px; background: #0b1b24; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 8px 20px rgba(0, 0, 0, 0.5); transform: scaleX(-1); }
+#call { position: fixed; inset: 0; z-index: 70; pointer-events: none; font: 800 14px Nunito, system-ui, sans-serif; color: #f7f3ea; }
+#call .dock { position: absolute; left: 0; top: 0; pointer-events: none; }
+#call .dock > * { pointer-events: auto; }
+#call button { border: 0; cursor: pointer; color: #fff; font: 800 14px Nunito, system-ui, sans-serif; border-radius: 999px; padding: 0; display: grid; place-items: center; background: rgba(8, 24, 32, 0.9); }
+#call button:active { transform: scale(0.92); }
+#call .fab { width: 46px; height: 46px; font-size: 20px; touch-action: none; box-shadow: 0 0 0 2px rgba(46, 211, 230, 0.55), 0 8px 20px rgba(0, 0, 0, 0.5); }
+#call .fab.live { background: linear-gradient(180deg, #62e8f4, #3b8cff); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6), 0 8px 20px rgba(0, 0, 0, 0.5); }
+#call .fab.muted { background: linear-gradient(180deg, #ff9a5c, #e11d48); }
+#call .menu { position: absolute; left: 3px; top: 52px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+#call .dock.up .menu { top: auto; bottom: 52px; flex-direction: column-reverse; }
+#call .menu button { width: 40px; height: 40px; font-size: 17px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.25), 0 6px 14px rgba(0, 0, 0, 0.45); }
+#call .menu button.wide { width: auto; padding: 0 12px; font-size: 13px; height: 38px; white-space: nowrap; }
+#call .menu button.on { background: linear-gradient(180deg, #62e8f4, #3b8cff); }
+#call .menu button.end { background: linear-gradient(180deg, #ff7a8a, #e11d48); }
+#call .menu button.go { background: linear-gradient(180deg, #ffe48f, #ffae2b); color: #3a2400; }
+#call .menu .st { font-size: 11px; color: #cfe6ee; background: rgba(8, 24, 32, 0.85); padding: 3px 8px; border-radius: 999px; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+#call .vids { position: absolute; top: 0; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+#call .vids.l { right: 54px; }
+#call .vids.r { left: 54px; align-items: flex-start; }
+#call video { width: 104px; height: 78px; object-fit: cover; border-radius: 14px; background: #0b1b24; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 8px 18px rgba(0, 0, 0, 0.5); transform: scaleX(-1); pointer-events: none; }
 #call video.rv { transform: none; }
-#call video.lv { width: 72px; height: 54px; border-radius: 12px; }
-@media (max-height: 460px) { #call video { width: 104px; height: 78px; } #call video.lv { width: 56px; height: 42px; } }
+#call video.lv { width: 56px; height: 42px; border-radius: 10px; }
+#call .ring { position: absolute; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%); display: none; gap: 10px; align-items: center; padding: 8px 10px 8px 16px; border-radius: 999px; pointer-events: auto;
+  background: rgba(8, 24, 32, 0.95); box-shadow: 0 0 0 2px #ffd166, 0 12px 30px rgba(0, 0, 0, 0.55); animation: cring 1.2s ease-in-out infinite; }
+#call .ring button { height: 38px; min-width: 38px; padding: 0 14px; }
+#call .ring button.go { background: linear-gradient(180deg, #ffe48f, #ffae2b); color: #3a2400; }
+#call .ring button.end { background: linear-gradient(180deg, #ff7a8a, #e11d48); }
+@keyframes cring { 50% { box-shadow: 0 0 0 2px #ffd166, 0 0 26px rgba(255, 209, 102, 0.55), 0 12px 30px rgba(0, 0, 0, 0.55); } }
 `;
 
 const polite = () => net.role === 'water';
@@ -97,7 +114,7 @@ async function ensurePc() {
     render();
   };
   p.onconnectionstatechange = () => {
-    if (p.connectionState === 'failed') note = 'No se pudo conectar. Prueben de nuevo';
+    if (p.connectionState === 'failed') note = 'No se pudo conectar';
     else if (p.connectionState === 'connected') note = '';
     render();
   };
@@ -139,7 +156,7 @@ async function addMic() {
     micOn = true;
     note = '';
   } catch {
-    note = 'Sin permiso para el micrófono';
+    note = 'Sin permiso de micrófono';
   }
   render();
 }
@@ -147,6 +164,7 @@ async function addMic() {
 async function start() {
   answered = true;
   ringing = false;
+  open = true;
   note = 'Llamando…';
   render();
   await addMic();
@@ -155,6 +173,7 @@ async function start() {
 async function answer() {
   answered = true;
   ringing = false;
+  open = true;
   void audioEl.play().catch(() => undefined);
   render();
   await addMic();
@@ -192,7 +211,7 @@ async function toggleCam() {
     camOn = true;
     note = '';
   } catch {
-    note = 'Sin permiso para la cámara';
+    note = 'Sin permiso de cámara';
   }
   render();
 }
@@ -212,6 +231,7 @@ function teardown(notify: boolean) {
   ringing = false;
   makingOffer = false;
   ignoreOffer = false;
+  open = false;
   note = '';
   remote = new MediaStream();
   audioEl.srcObject = null;
@@ -220,62 +240,128 @@ function teardown(notify: boolean) {
   render();
 }
 
+const clamp = () => {
+  const maxX = Math.max(6, window.innerWidth - FAB - 6);
+  const maxY = Math.max(6, window.innerHeight - FAB - 6);
+  pos = { x: Math.min(maxX, Math.max(6, pos.x)), y: Math.min(maxY, Math.max(6, pos.y)) };
+};
+
+function place() {
+  if (!window.innerWidth || !window.innerHeight) return;
+  if (pos.x < 0) pos = { x: window.innerWidth - FAB - 8, y: Math.round(window.innerHeight * 0.3) };
+  clamp();
+  dock.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+  dock.style.visibility = 'visible';
+  dock.classList.toggle('up', pos.y > window.innerHeight * 0.55);
+  vids.className = `vids ${pos.x > window.innerWidth / 2 ? 'l' : 'r'}`;
+}
+
+const btn = (cls: string, html: string, label: string, fn: () => void) => {
+  const b = document.createElement('button');
+  b.className = cls;
+  b.innerHTML = html;
+  b.setAttribute('aria-label', label);
+  b.onclick = fn;
+  return b;
+};
+
 function render() {
   const inTable = !!net.code;
   root.style.display = inTable ? 'block' : 'none';
   if (!inTable) return;
-  const bar = !net.peerOnline && !pc ? '' : answered || pc ? 'active' : 'idle';
-  root.innerHTML = '';
-  const add = (tag: string, cls: string, html: string, fn?: () => void) => {
-    const b = document.createElement(tag);
-    b.className = cls;
-    b.innerHTML = html;
-    if (fn) (b as HTMLButtonElement).onclick = fn;
-    return b;
+
+  const active = answered || (!!pc && !ringing);
+  const live = pc?.connectionState === 'connected';
+  fab.className = `fab${live ? ' live' : ''}${active && !micOn ? ' muted' : ''}`;
+  fab.textContent = active ? (micOn ? '🎧' : '🔇') : '📞';
+  fab.setAttribute('aria-label', 'Llamada');
+
+  ring.style.display = ringing ? 'flex' : 'none';
+
+  menu.innerHTML = '';
+  if (open && !ringing) {
+    if (!active) {
+      if (net.peerOnline) {
+        menu.append(btn('wide go', '📞 Llamar', 'Llamar', () => void start()));
+        menu.append(btn('wide', '📷 Video', 'Llamar con video', () => void toggleCam()));
+      } else {
+        const s = document.createElement('span');
+        s.className = 'st';
+        s.textContent = 'Tu pareja no está';
+        menu.append(s);
+      }
+    } else {
+      menu.append(btn(micOn ? 'on' : '', micOn ? '🎤' : '🔇', micOn ? 'Silenciar micrófono' : 'Activar micrófono', toggleMic));
+      menu.append(btn(camOn ? 'on' : '', camOn ? '📷' : '🚫', camOn ? 'Apagar cámara' : 'Encender cámara', () => void toggleCam()));
+      menu.append(btn('end', '📵', 'Colgar', () => teardown(true)));
+      const s = document.createElement('span');
+      s.className = 'st';
+      s.textContent = live ? 'En llamada' : note || 'Conectando…';
+      menu.append(s);
+    }
+  }
+
+  vids.innerHTML = '';
+  if (hasRemoteVideo()) {
+    remoteVideo.className = 'rv';
+    vids.append(remoteVideo);
+    void remoteVideo.play().catch(() => undefined);
+  }
+  if (camOn) {
+    localVideo.className = 'lv';
+    vids.append(localVideo);
+    void localVideo.play().catch(() => undefined);
+  }
+  place();
+}
+
+function drag() {
+  let sx = 0;
+  let sy = 0;
+  let ox = 0;
+  let oy = 0;
+  let moved = false;
+  let id = -1;
+  fab.addEventListener('pointerdown', (e) => {
+    id = e.pointerId;
+    sx = e.clientX;
+    sy = e.clientY;
+    ox = pos.x;
+    oy = pos.y;
+    moved = false;
+    try {
+      fab.setPointerCapture(id);
+    } catch {
+      void 0;
+    }
+  });
+  fab.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - sx;
+    const dy = e.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 8) return;
+    moved = true;
+    pos = { x: ox + dx, y: oy + dy };
+    place();
+  });
+  const end = (e: PointerEvent) => {
+    if (e.pointerId !== id) return;
+    id = -1;
+    if (moved) {
+      try {
+        localStorage.setItem(POS_KEY, JSON.stringify(pos));
+      } catch {
+        void 0;
+      }
+      return;
+    }
+    open = !open;
+    render();
   };
-
-  if (ringing) {
-    const box = add('div', 'ring', '<span>Tu pareja quiere hablar</span>');
-    const yes = add('button', 'go', 'Contestar', () => void answer());
-    const no = add('button', 'end', '✕', () => teardown(true));
-    no.setAttribute('aria-label', 'Rechazar');
-    box.append(yes, no);
-    root.append(box);
-  }
-
-  const showVideo = hasRemoteVideo() || camOn;
-  if (showVideo) {
-    const v = add('div', 'vids', '');
-    if (hasRemoteVideo()) {
-      remoteVideo.className = 'rv';
-      v.append(remoteVideo);
-      void remoteVideo.play().catch(() => undefined);
-    }
-    if (camOn) {
-      localVideo.className = 'lv';
-      v.append(localVideo);
-      void localVideo.play().catch(() => undefined);
-    }
-    root.append(v);
-  }
-
-  if (!net.peerOnline && !pc) return;
-  const cb = add('div', 'cb', '');
-  if (bar === 'idle' && !ringing) {
-    cb.append(add('button', 'go', '📞 Hablar', () => void start()));
-    cb.append(add('button', 'pill', '📷', () => void toggleCam()));
-  } else if (!ringing) {
-    const mic = add('button', micOn ? 'on' : 'off', micOn ? '🎤' : '🔇', toggleMic);
-    mic.setAttribute('aria-label', micOn ? 'Silenciar micrófono' : 'Activar micrófono');
-    const cam = add('button', camOn ? 'on' : 'off', camOn ? '📷' : '🚫', () => void toggleCam());
-    cam.setAttribute('aria-label', camOn ? 'Apagar cámara' : 'Encender cámara');
-    const end = add('button', 'end', '📵', () => teardown(true));
-    end.setAttribute('aria-label', 'Colgar');
-    cb.append(mic, cam, end);
-    const state = pc?.connectionState === 'connected' ? 'En llamada' : note || 'Conectando…';
-    cb.append(add('span', 'st', state));
-  }
-  if (cb.childElementCount) root.append(cb);
+  fab.addEventListener('pointerup', end);
+  fab.addEventListener('pointercancel', () => {
+    id = -1;
+  });
 }
 
 export function initCall() {
@@ -283,9 +369,37 @@ export function initCall() {
   style.textContent = CSS;
   document.head.appendChild(style);
 
+  try {
+    const saved = JSON.parse(localStorage.getItem(POS_KEY) ?? 'null') as { x: number; y: number } | null;
+    if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') pos = saved;
+  } catch {
+    void 0;
+  }
+
   root = document.createElement('div');
   root.id = 'call';
   root.style.display = 'none';
+
+  dock = document.createElement('div');
+  dock.className = 'dock';
+  dock.style.visibility = 'hidden';
+  fab = document.createElement('button');
+  fab.className = 'fab';
+  menu = document.createElement('div');
+  menu.className = 'menu';
+  vids = document.createElement('div');
+  vids.className = 'vids l';
+  dock.append(vids, fab, menu);
+
+  ring = document.createElement('div');
+  ring.className = 'ring';
+  ring.innerHTML = '<span>Tu pareja quiere hablar</span>';
+  ring.append(
+    btn('go', 'Contestar', 'Contestar', () => void answer()),
+    btn('end', '✕', 'Rechazar', () => teardown(true)),
+  );
+
+  root.append(dock, ring);
   document.body.appendChild(root);
 
   audioEl = document.createElement('audio');
@@ -299,6 +413,9 @@ export function initCall() {
   localVideo.autoplay = true;
   localVideo.muted = true;
   localVideo.setAttribute('playsinline', '');
+
+  drag();
+  window.addEventListener('resize', place);
 
   let chain: Promise<void> = Promise.resolve();
   net.on('event', (e: { t?: string; s?: Sig }) => {
