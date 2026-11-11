@@ -7,6 +7,9 @@ import { setupTouchControls } from './touch';
 import { autoFullscreenOnTouch } from './fullscreen';
 import { computeView, VIEW } from './view';
 import { setQuality } from './gfx';
+import { app } from './app';
+import { initSwitcher } from './switcher';
+import { initCall } from './call';
 
 setupTouchControls();
 autoFullscreenOnTouch();
@@ -29,10 +32,14 @@ void fontsReady.then(() => {
     width: VIEW.cw,
     height: VIEW.ch,
     backgroundColor: '#0b1b24',
-    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 900 }, debug: false } },
+    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 900 }, debug: false, fps: 120, overlapBias: 8 } },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [BootScene, MenuScene, LevelSelectScene, LevelScene],
   });
+
+  app.game = game;
+  initSwitcher();
+  initCall();
 
   let timer: number | undefined;
   window.addEventListener('resize', () => {

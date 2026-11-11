@@ -13,12 +13,12 @@ interface Level {
 
 const LEVELS: Level[] = [
   { name: 'Clásico', desc: '3×3 · tres en línea', n: 3, k: 3, icon: '1' },
-  { name: 'Fichas que se van', desc: '3×3 · solo 3 fichas, la más vieja desaparece', n: 3, k: 3, vanish: 3, icon: '2' },
+  { name: 'Fichas que se van', desc: '3×3 · solo 4 fichas, la más vieja desaparece', n: 3, k: 3, vanish: 4, icon: '2' },
   { name: 'Al revés', desc: '3×3 · pierde quien haga la línea', n: 3, k: 3, misere: true, icon: '3' },
   { name: 'Cuatro seguidas', desc: '4×4 · cuatro en línea', n: 4, k: 4, icon: '4' },
   { name: 'Obstáculos', desc: '5×5 · cuatro en línea con casillas bloqueadas', n: 5, k: 4, blocked: 4, icon: '5' },
   { name: 'Gran tablero', desc: '6×6 · cinco en línea', n: 6, k: 5, icon: '6' },
-  { name: 'Maestro', desc: '5×5 · cuatro en línea, obstáculos y 4 fichas', n: 5, k: 4, blocked: 3, vanish: 4, icon: '7' },
+  { name: 'Maestro', desc: '5×5 · cuatro en línea, obstáculos y 5 fichas', n: 5, k: 4, blocked: 3, vanish: 5, icon: '7' },
 ];
 
 const KEY = 'wf-ttt-unlocked';

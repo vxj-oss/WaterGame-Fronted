@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { openOnline } from '../screens';
+import { fuegoTarget, goTo, inTable } from '../switcher';
+import { LEVELS } from '../levels';
+import { nextLevelIndex } from '../save';
 import { closeGames, el, esc, GameDef, gameRoot, launchGame, setExitHandler } from './kit';
 import { GAMES } from './registry';
 
@@ -24,6 +27,13 @@ export function openHub(scene: Phaser.Scene) {
   const grid = el('div', 'hub');
   const layer = el('div', 'g-layer');
 
+  const fuego = el('button', 'gcard');
+  fuego.innerHTML = `<span class="ic" style="background:linear-gradient(160deg,#ff9a5c,#3b8cff)">🔥</span>
+    <span><h4>Fuego y Agua</h4><p>Plataformas cooperativas: ${LEVELS.length} niveles</p>
+    <span class="gtags"><span class="gtag on">2 jugadores</span><span class="gtag loc">Mismo dispositivo</span></span></span>`;
+  fuego.onclick = () => chooseFuego();
+  grid.append(fuego);
+
   GAMES.forEach((g, i) => {
     const card = el('button', 'gcard');
     card.style.animationDelay = `${i * 60}ms`;
@@ -34,6 +44,33 @@ export function openHub(scene: Phaser.Scene) {
     grid.append(card);
   });
 
+  const chooseFuego = () => {
+    layer.innerHTML = '';
+    const panel = el('div', 'gpanel');
+    panel.innerHTML = '<h3>Fuego y Agua</h3><p>Dos personajes, un solo camino</p>';
+    const row = el('div', 'choices');
+    row.style.margin = '0 auto';
+    const online = el('button', 'gbtn lagoon', 'Jugar en línea (2 jugadores)');
+    online.onclick = () => {
+      if (inTable()) goTo(fuegoTarget());
+      else {
+        closeGames();
+        void openOnline(scene);
+      }
+    };
+    const loc = el('button', 'gbtn', 'En este dispositivo');
+    loc.onclick = () => {
+      closeGames();
+      scene.scene.start('Level', { level: nextLevelIndex(LEVELS.length) });
+    };
+    const cancel = el('button', 'gbtn ghost', 'Cancelar');
+    cancel.onclick = () => layer.classList.remove('on');
+    row.append(online, loc, cancel);
+    panel.append(row);
+    layer.append(panel);
+    layer.classList.add('on');
+  };
+
   const choose = (g: GameDef) => {
     layer.innerHTML = '';
     const panel = el('div', 'gpanel');
@@ -42,8 +79,11 @@ export function openHub(scene: Phaser.Scene) {
     row.style.margin = '0 auto';
     const online = el('button', 'gbtn lagoon', 'Jugar en línea (2 jugadores)');
     online.onclick = () => {
-      closeGames();
-      void openOnline(scene, g.id);
+      if (inTable()) goTo({ kind: 'game', id: g.id });
+      else {
+        closeGames();
+        void openOnline(scene, g.id);
+      }
     };
     row.append(online);
     if (g.solo) {

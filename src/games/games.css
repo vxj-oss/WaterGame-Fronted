@@ -23,9 +23,10 @@
 .g-back:active { transform: scale(0.92); }
 .g-title { font: 400 28px/1 var(--display); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background: linear-gradient(90deg, #ffd36b, #ff7a3d 45%, #ff4d6d); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.g-chips { display: flex; gap: 8px; flex: 0 0 auto; }
+.g-chips { display: flex; gap: 10px; flex: 0 0 auto; margin-left: 4px; }
+.g-home { font-size: 22px; }
 .g-chip {
-  display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.3);
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.3);
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12); font-size: 14px; transition: box-shadow 0.2s, transform 0.2s;
 }
 .g-chip i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
@@ -41,7 +42,8 @@
 .g-status { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 36px; padding: 0 16px; color: var(--mute); text-align: center; flex: 0 0 auto; }
 .g-status span { font-size: 17px; }
 .g-status span b { color: var(--text); }
-.g-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 8px 16px 20px; touch-action: pan-y; }
+.g-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; padding: 8px 16px 20px; touch-action: pan-y; }
+.g-body > * { margin-top: auto; margin-bottom: auto; flex-shrink: 0; }
 .g-layer { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 14, 20, 0.72); backdrop-filter: blur(6px); z-index: 5; }
 .g-layer.on { display: flex; animation: gfade 0.2s both; }
 
@@ -191,3 +193,34 @@
 .lvgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; width: 100%; max-width: 780px; }
 .gcard.locked { opacity: 0.45; cursor: not-allowed; }
 .gcard:disabled:hover { transform: none; }
+
+@media (max-height: 520px) {
+  .g-top { padding: 6px 12px; gap: 10px; }
+  .g-back { width: 38px; height: 38px; font-size: 22px; }
+  .g-title { font-size: 22px; }
+  .g-chip { padding: 4px 10px 4px 6px; font-size: 13px; }
+  .g-chip i { width: 18px; height: 18px; }
+  .g-status { min-height: 26px; }
+  .g-status span { font-size: 15px; }
+  .g-body { padding: 4px 12px 10px; gap: 8px; }
+  .gpanel { padding: 14px 16px; gap: 10px; max-width: 400px; }
+  .gpanel h3 { font-size: 28px; }
+  .gbtn { padding: 11px 18px; font-size: 15px; }
+  .gcard { padding: 10px 12px; gap: 10px; }
+  .gcard .ic { width: 52px; height: 52px; font-size: 28px; border-radius: 16px; }
+  .gcard h4 { font-size: 20px; }
+  .gcard p { margin-bottom: 4px; font-size: 13px; }
+  .hub, .lvgrid { gap: 10px; }
+  .lvgrid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .todcard { min-height: 150px; padding: 16px; }
+  .todcard p { font-size: 18px; }
+  .ttt, .mem { width: min(100%, calc(100dvh - 150px), 420px); }
+  .nboard.big { width: min(100%, calc(100dvh - 230px), 380px); }
+  .draw canvas { max-height: calc(100dvh - 220px); }
+  .hang svg.gal { width: min(150px, 28vh); }
+  .hang .word span { width: 28px; height: 38px; font-size: 24px; }
+}
+@media (max-width: 380px) {
+  .g-chips { gap: 6px; }
+  .g-title { font-size: 19px; }
+}

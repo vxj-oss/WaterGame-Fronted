@@ -152,6 +152,9 @@ class Session {
     const back = el('button', 'g-back', '‹');
     back.setAttribute('aria-label', 'Salir');
     back.onclick = () => this.exit();
+    const home = el('button', 'g-back g-home', '⌂');
+    home.setAttribute('aria-label', 'Menú principal');
+    home.onclick = () => this.home();
     const title = el('div', 'g-title');
     title.textContent = this.def.name;
     const chips = el('div', 'g-chips');
@@ -164,7 +167,7 @@ class Session {
       chips.append(box);
       this.chips.push({ box, n, s });
     });
-    top.append(back, title, chips);
+    top.append(back, home, title, chips);
 
     const status = el('div', 'g-status');
     this.statusEl = el('span');
@@ -278,7 +281,7 @@ class Session {
   }
 
   private peerGone(text: string) {
-    this.showLayer(`<div class="gpanel"><h3>Pausa</h3><p>${esc(text)}</p><div class="grow"><button class="gbtn ghost" id="gx">Salir</button></div></div>`);
+    this.showLayer(`<div class="gpanel"><h3>Pausa</h3><p>${esc(text)}</p><div class="grow"><button class="gbtn ghost" id="gx">Cambiar de juego</button></div></div>`);
     (this.layer.querySelector('#gx') as HTMLElement).onclick = () => this.exit();
   }
 
@@ -312,6 +315,12 @@ class Session {
       this.againBtn.hidden = false;
     };
     (this.layer.querySelector('#gx') as HTMLElement).onclick = () => this.exit();
+  }
+
+  home() {
+    if (!this.alive) return;
+    this.sys('bye');
+    closeGames();
   }
 
   exit() {

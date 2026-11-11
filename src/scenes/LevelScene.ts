@@ -10,6 +10,7 @@ import { CSS } from '../theme';
 import { button, circleButton, display, modal, Modal, pill, text } from '../ui';
 import { applyCamera, VIEW } from '../view';
 import { backgroundTexture } from '../gfx';
+import { openHub } from '../games/hub';
 
 const SPEED = 160;
 const JUMP = -450;
@@ -184,6 +185,7 @@ export class LevelScene extends Phaser.Scene {
     this.players = [this.fire, this.water];
     for (const p of this.players) {
       p.setCollideWorldBounds(true);
+      p.setMaxVelocity(SPEED + 20, 760);
       p.setDepth(5);
     }
     this.trails = [
@@ -660,9 +662,10 @@ export class LevelScene extends Phaser.Scene {
 
     const by = m.cy + 168;
     m.track(
-      ...button(this, m.cx - 214, by, 'Reintentar', () => this.goto(this.levelIndex), { w: 190, h: 56, variant: 'ghost', size: '19px', depth: d, fixed: true }),
-      ...button(this, m.cx, by, 'Niveles', () => this.toSelect(), { w: 190, h: 56, variant: 'lagoon', size: '19px', depth: d, fixed: true }),
-      ...button(this, m.cx + 214, by, last ? 'Terminar' : 'Siguiente', next, { w: 190, h: 56, size: '19px', depth: d, fixed: true }),
+      ...button(this, m.cx - 258, by, 'Reintentar', () => this.goto(this.levelIndex), { w: 160, h: 56, variant: 'ghost', size: '17px', depth: d, fixed: true }),
+      ...button(this, m.cx - 86, by, 'Niveles', () => this.toSelect(), { w: 160, h: 56, variant: 'lagoon', size: '17px', depth: d, fixed: true }),
+      ...button(this, m.cx + 86, by, 'Más juegos', () => openHub(this), { w: 160, h: 56, variant: 'gold', size: '17px', depth: d, fixed: true }),
+      ...button(this, m.cx + 258, by, last ? 'Terminar' : 'Siguiente', next, { w: 160, h: 56, size: '17px', depth: d, fixed: true }),
     );
 
     this.time.delayedCall(500, () => this.input.keyboard!.once('keydown-ENTER', next));
@@ -678,7 +681,7 @@ export class LevelScene extends Phaser.Scene {
     this.physics.pause();
     const m = modal(this, {
       w: 460,
-      h: 440,
+      h: 500,
       title: 'Pausa',
       subtitle: 'Respiren un momento',
       depth: 40,
@@ -691,15 +694,18 @@ export class LevelScene extends Phaser.Scene {
     this.pauseModal = m;
     const d = m.depth + 3;
     const o = { w: 340, h: 56, size: '20px', depth: d, fixed: true };
-    const sound = button(this, m.cx, m.cy + 150, sfx.isMuted() ? 'Sonido apagado' : 'Sonido encendido', () => {
+    const sound = button(this, m.cx + 90, m.cy + 186, sfx.isMuted() ? 'Sonido: no' : 'Sonido: sí', () => {
       sfx.toggleMute();
-      (sound[1] as Phaser.GameObjects.Text).setText(sfx.isMuted() ? 'Sonido apagado' : 'Sonido encendido');
-    }, { ...o, variant: 'ghost', h: 50, size: '17px' });
+      (sound[1] as Phaser.GameObjects.Text).setText(sfx.isMuted() ? 'Sonido: no' : 'Sonido: sí');
+    }, { ...o, w: 160, variant: 'ghost', h: 50, size: '15px' });
+    const home = button(this, m.cx - 90, m.cy + 186, 'Menú principal', () => this.scene.start('Menu'), { ...o, w: 160, variant: 'ghost', h: 50, size: '15px' });
     m.track(
-      ...button(this, m.cx, m.cy - 50, 'Continuar', () => m.close(), o),
-      ...button(this, m.cx, m.cy + 20, 'Reiniciar', () => this.goto(this.levelIndex), { ...o, variant: 'lagoon' }),
-      ...button(this, m.cx, m.cy + 90, 'Niveles', () => this.toSelect(), { ...o, variant: 'ghost', h: 50, size: '17px' }),
+      ...button(this, m.cx, m.cy - 80, 'Continuar', () => m.close(), o),
+      ...button(this, m.cx, m.cy - 12, 'Reiniciar', () => this.goto(this.levelIndex), { ...o, variant: 'lagoon' }),
+      ...button(this, m.cx, m.cy + 56, 'Niveles', () => this.toSelect(), { ...o, variant: 'ghost', h: 50, size: '17px' }),
+      ...button(this, m.cx, m.cy + 120, 'Cambiar de juego', () => openHub(this), { ...o, variant: 'gold', h: 50, size: '17px' }),
       ...sound,
+      ...home,
     );
   }
 }
