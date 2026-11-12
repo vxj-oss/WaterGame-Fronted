@@ -3,13 +3,13 @@ import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { LevelSelectScene } from './scenes/LevelSelectScene';
 import { LevelScene } from './scenes/LevelScene';
-import { setupTouchControls } from './touch';
-import { autoFullscreenOnTouch } from './fullscreen';
-import { computeView, VIEW } from './view';
-import { setQuality } from './gfx';
-import { app } from './app';
-import { initSwitcher } from './switcher';
-import { initCall } from './call';
+import { setupTouchControls } from './utils/touch';
+import { autoFullscreenOnTouch } from './utils/fullscreen';
+import { computeView, VIEW } from './config/view';
+import { setQuality } from './utils/gfx';
+import { app } from './services/app';
+import { initSwitcher } from './services/switcher';
+import { initCall } from './components/call';
 
 setupTouchControls();
 autoFullscreenOnTouch();
@@ -32,12 +32,17 @@ void fontsReady.then(() => {
     width: VIEW.cw,
     height: VIEW.ch,
     backgroundColor: '#0b1b24',
-    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 900 }, debug: false, fps: 120, overlapBias: 8 } },
+    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 900 }, debug: false, overlapBias: 8 } },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [BootScene, MenuScene, LevelSelectScene, LevelScene],
   });
 
   app.game = game;
+  const calm = () => {
+    if (document.getElementById('games') || document.getElementById('ui')?.style.display === 'flex') window.setTimeout(() => game.loop.sleep(), 0);
+  };
+  game.events.on(Phaser.Core.Events.VISIBLE, calm);
+  game.events.on(Phaser.Core.Events.FOCUS, calm);
   initSwitcher();
   initCall();
 

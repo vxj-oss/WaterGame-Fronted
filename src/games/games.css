@@ -44,7 +44,7 @@
 .g-status span b { color: var(--text); }
 .g-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; padding: 8px 16px 20px; touch-action: pan-y; }
 .g-body > * { margin-top: auto; margin-bottom: auto; flex-shrink: 0; }
-.g-layer { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 14, 20, 0.72); backdrop-filter: blur(6px); z-index: 5; }
+.g-layer { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(5, 14, 20, 0.82); z-index: 5; }
 .g-layer.on { display: flex; animation: gfade 0.2s both; }
 
 .gbtn {
@@ -288,4 +288,79 @@
   .tf .tf-note { display: none; }
   .tf .gbtn { padding: 8px 16px; }
   .tf-sum { font-size: 13px; }
+}
+
+.hang .hints { display: flex; flex-direction: column; gap: 6px; align-items: center; min-height: 4px; }
+.hang .hints span { background: rgba(255, 209, 102, 0.16); color: var(--gold); padding: 5px 12px; border-radius: 999px; font-size: 14px; }
+.hang .hmain { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.todcard .ans { background: rgba(0, 0, 0, 0.25); padding: 10px 14px; border-radius: 14px; font-size: 17px; }
+.tod .ginput { text-transform: none; letter-spacing: 0; text-align: left; font-size: 16px; }
+@media (orientation: landscape) {
+  .hang { flex-direction: row; flex-wrap: nowrap; align-items: flex-start; justify-content: center; max-width: 920px; gap: 18px; }
+  .hang .hmain { flex: 1; min-width: 320px; gap: 8px; }
+  .hang svg.gal { width: min(150px, 30vh); flex: 0 0 auto; }
+  .hang .keys { grid-template-columns: repeat(auto-fit, minmax(34px, 1fr)); }
+  .hang .keys button { padding: 7px 0; }
+}
+@media (max-height: 520px) {
+  .tod { gap: 8px; }
+  .todcard { min-height: 110px; padding: 12px; }
+  .todcard p { font-size: 16px; }
+  .todcard .emoji { font-size: 32px; }
+}
+
+.g-chip small { font-size: 9px; letter-spacing: 1px; color: var(--gold); min-width: 0; }
+.g-chip small:empty { display: none; }
+.gcard .rec { font-size: 12px; color: var(--gold); margin-top: 4px; display: block; }
+
+.bdwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; position: relative; width: 100%; }
+.bd { display: grid; grid-template-columns: repeat(8, 1fr); width: min(100%, calc(100dvh - 210px), 520px); aspect-ratio: 1; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15), 0 14px 30px rgba(0, 0, 0, 0.45); }
+.bd .sq { border: 0; padding: 0; display: grid; place-items: center; position: relative; cursor: pointer; font-size: clamp(22px, 8vmin, 48px); line-height: 1; }
+.bd .sq.lt { background: #ecdcc0; }
+.bd .sq.dk { background: #8a6a4a; }
+.bd .sq:disabled { cursor: default; }
+.bd .sq.lm { box-shadow: inset 0 0 0 100px rgba(255, 209, 102, 0.38); }
+.bd .sq.sel { box-shadow: inset 0 0 0 4px #ffd166; }
+.bd .sq.tg::after { content: ''; width: 30%; height: 30%; border-radius: 50%; background: rgba(0, 0, 0, 0.3); }
+.bd .sq.cap { box-shadow: inset 0 0 0 4px rgba(255, 80, 80, 0.75); }
+.bd .sq.chk { background-image: radial-gradient(circle, rgba(255, 60, 60, 0.85), transparent 72%); }
+.bd .cp { line-height: 1; }
+.bd .cp.cw { color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 0 2px 4px rgba(0, 0, 0, 0.55); }
+.bd .cp.cb { color: #1b1b1f; text-shadow: 0 0 2px rgba(255, 255, 255, 0.6), 0 2px 3px rgba(0, 0, 0, 0.4); }
+.bd .pc { width: 76%; height: 76%; border-radius: 50%; display: grid; place-items: center; font-size: 62%; color: #fff7d6; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.45), inset 0 0 0 3px rgba(255, 255, 255, 0.35); }
+.bd .pc.p0 { background: radial-gradient(circle at 35% 30%, #ffb26b, #e8412c); }
+.bd .pc.p1 { background: radial-gradient(circle at 35% 30%, #9eeaff, #2f7bff); }
+.bd .pc.king { box-shadow: 0 3px 6px rgba(0, 0, 0, 0.45), inset 0 0 0 3px #ffd166; }
+.bdwrap .promo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-radius: 18px; background: rgba(8, 24, 32, 0.96); box-shadow: 0 0 0 2px #ffd166, 0 16px 40px rgba(0, 0, 0, 0.6); z-index: 3; }
+.bdwrap .promo[hidden] { display: none; }
+@media (max-height: 520px) { .bd { width: min(100%, calc(100dvh - 128px), 520px); } }
+
+.race, .trv { width: 100%; max-width: 580px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.rc-tag { color: var(--gold); letter-spacing: 0.14em; text-transform: uppercase; font-size: 12px; }
+.rc-big { font-size: clamp(44px, 12vmin, 84px); line-height: 1.1; letter-spacing: 6px; }
+.rc-clue { margin: 0; font-size: 17px; color: var(--text); }
+.rc-clue.new { color: var(--gold); animation: gpop 0.3s both; }
+.rc-meta { display: flex; gap: 14px; align-items: center; color: var(--mute); font-size: 14px; }
+.rc-note { min-height: 1.4em; color: var(--mute); }
+.rc-note.show { color: var(--text); font-size: 18px; }
+.race .guessrow { max-width: 460px; }
+input.shake { animation: gshake 0.3s; }
+.rc-pick { width: 100%; display: flex; justify-content: center; }
+.trv-q { font: 800 22px/1.3 var(--body); text-wrap: balance; padding: 0 6px; }
+.trv-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.trv-opt { position: relative; border: 0; border-radius: 16px; padding: 14px 12px; color: #fff; font: 800 16px/1.2 var(--body); cursor: pointer; background: linear-gradient(180deg, #25566c, #173e50); box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.16), 0 6px 14px rgba(0, 0, 0, 0.3); min-height: 54px; }
+.trv-opt:not(:disabled):hover { filter: brightness(1.15); }
+.trv-opt:disabled { cursor: default; }
+.trv-opt.picked { box-shadow: inset 0 0 0 3px #ffd166; }
+.trv-opt.ok { background: linear-gradient(180deg, #3cc78a, #1f8a5a); }
+.trv-opt.bad { background: linear-gradient(180deg, #ff7a8a, #c4284a); }
+.trv-opt em { display: block; font-style: normal; font-size: 11px; opacity: 0.9; margin-top: 3px; letter-spacing: 0.04em; }
+@media (max-height: 520px) {
+  .race, .trv { gap: 6px; }
+  .rc-big { font-size: clamp(34px, 11vmin, 54px); }
+  .rc-clue { font-size: 14px; }
+  .trv-q { font-size: 17px; }
+  .trv-opt { padding: 9px 10px; min-height: 42px; font-size: 14px; }
+  .rc-meta { font-size: 12px; }
+  .rc-note.show { font-size: 15px; }
 }

@@ -22,6 +22,8 @@ const LEVELS: Level[] = [
 ];
 
 const KEY = 'wf-ttt-unlocked';
+
+let queued: number | null = null;
 const DIRS: [number, number][] = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
 const loadUnlocked = () => {
@@ -220,7 +222,26 @@ function start(ctx: Ctx) {
       over = true;
       render(line);
       if (ctx.solo && winner === 0) saveUnlocked(Math.max(loadUnlocked(), Math.min(LEVELS.length - 1, idx + 1)));
-      timer = window.setTimeout(() => ctx.finish({ winner, sub: lv.name }), winner === null ? 600 : 900);
+      const hasNext = idx + 1 < LEVELS.length;
+      let primary: string | undefined;
+      if (ctx.solo) {
+        if (winner === 0 && hasNext) {
+          queued = idx + 1;
+          primary = 'Jugar el siguiente nivel';
+        } else if (winner !== 0) {
+          queued = idx;
+          primary = 'Reintentar este nivel';
+        }
+      }
+      const series = ctx.solo
+        ? {}
+        : {
+            onNext: (over: boolean) => {
+              queued = over ? (hasNext ? idx + 1 : null) : idx;
+            },
+            matchPrimary: hasNext ? 'Jugar el siguiente nivel' : 'Revancha',
+          };
+      timer = window.setTimeout(() => ctx.finish({ winner, sub: lv.name, primary, ...series }), winner === null ? 600 : 900);
     };
 
     const play1 = (i: number, who: 0 | 1) => {
@@ -270,7 +291,14 @@ function start(ctx: Ctx) {
     if (d?.go && !started) play(d.go.lv as number, d.go.blocked as number[]);
   });
 
-  picker();
+  const queuedLevel = queued;
+  queued = null;
+  if (queuedLevel !== null && ctx.round > 0 && (ctx.local || ctx.me === 0)) {
+    const lv = LEVELS[queuedLevel];
+    const blocked = makeBlocked(lv);
+    ctx.send({ go: { lv: queuedLevel, blocked } });
+    play(queuedLevel, blocked);
+  } else picker();
 }
 
 export const ttt: GameDef = {
@@ -283,5 +311,6 @@ export const ttt: GameDef = {
   online: true,
   local: true,
   solo: true,
+  match: { target: 3 },
   start,
 };

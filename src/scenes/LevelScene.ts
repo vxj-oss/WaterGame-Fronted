@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
-import { COLS, GROUP_COLORS, ROWS, TILE, TOP } from '../config';
-import { LEVELS } from '../levels';
-import { MESSAGES } from '../messages';
-import { showTouch, touch } from '../touch';
-import { sfx } from '../audio';
-import { record } from '../save';
-import { api, net } from '../net';
-import { CSS } from '../theme';
-import { button, circleButton, display, modal, Modal, pill, text } from '../ui';
-import { applyCamera, VIEW } from '../view';
-import { backgroundTexture } from '../gfx';
+import { COLS, GROUP_COLORS, ROWS, TILE, TOP } from '../config/constants';
+import { LEVELS } from '../data/levels';
+import { MESSAGES } from '../data/messages';
+import { showTouch, touch } from '../utils/touch';
+import { sfx } from '../services/audio';
+import { record } from '../services/save';
+import { api, net } from '../services/net';
+import { CSS } from '../config/theme';
+import { button, circleButton, display, modal, Modal, pill, text } from '../components/ui';
+import { applyCamera, VIEW } from '../config/view';
+import { backgroundTexture } from '../utils/gfx';
 import { openHub } from '../games/hub';
 
 const SPEED = 160;

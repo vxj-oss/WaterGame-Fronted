@@ -1,5 +1,5 @@
-import { LEVELS } from '../src/levels';
-import { COLS, ROWS, TILE } from '../src/config';
+import { LEVELS } from '../src/data/levels';
+import { COLS, ROWS, TILE } from '../src/config/constants';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const DT = 1 / 60;
@@ -403,5 +403,5 @@ LEVELS.forEach((lv, i) => {
   if (wantMap || !res.ok) if (only) drawMap(i, res);
 });
 if (failed) { console.log(`\n${failed} nivel(es) sin solución`); process.exit(1); }
-if (!only) writeFileSync(new URL('../src/pars.json', import.meta.url), JSON.stringify(pars, null, 2) + '\n');
+if (!only) writeFileSync(new URL('../src/data/pars.json', import.meta.url), JSON.stringify(pars, null, 2) + '\n');
 console.log('\nTodos los niveles se pueden completar ✔');

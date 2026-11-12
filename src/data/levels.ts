@@ -1,4 +1,4 @@
-import { COLS, Level, LiftDef, ROWS } from './config';
+import { COLS, Level, LiftDef, ROWS } from '../config/constants';
 import pars from './pars.json';
 
 class G {

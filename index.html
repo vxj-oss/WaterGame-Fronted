@@ -82,13 +82,6 @@
           radial-gradient(60% 50% at 92% 0%, rgba(46, 211, 230, 0.28), transparent 60%), linear-gradient(180deg, #0f2c39, #09171f);
         animation: fade 0.25s ease both;
       }
-      #ui::before, #ui::after {
-        content: ''; position: fixed; width: 46vmin; height: 46vmin; border-radius: 50%; filter: blur(60px); opacity: 0.35; pointer-events: none;
-        animation: drift 14s ease-in-out infinite alternate;
-      }
-      #ui::before { background: #ff6a3d; left: -12vmin; bottom: -14vmin; }
-      #ui::after { background: #2ed3e6; right: -12vmin; top: -14vmin; animation-delay: -6s; }
-      @keyframes drift { to { transform: translate(8vmin, -6vmin) scale(1.15); } }
       @keyframes fade { from { opacity: 0; } }
       @keyframes pop { from { opacity: 0; transform: translateY(14px) scale(0.92); } }
 
@@ -162,7 +155,7 @@
       .link:hover:not(:disabled) { color: var(--text) !important; transform: none !important; filter: none !important; }
 
       @media (prefers-reduced-motion: reduce) {
-        #ui, #ui::before, #ui::after, .card, .code span, .slot em::before, #rotate i { animation: none !important; }
+        #ui, .card, .code span, .slot em::before, #rotate i { animation: none !important; }
       }
     </style>
   </head>

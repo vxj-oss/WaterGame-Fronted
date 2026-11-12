@@ -1,18 +1,18 @@
 import { app } from './app';
-import { closeGames, launchGame } from './games/kit';
-import { gameById } from './games/registry';
-import { LEVELS } from './levels';
+import { closeGames, launchGame } from '../games/kit';
+import { gameById } from '../games/registry';
+import { LEVELS } from '../data/levels';
 import { net } from './net';
 import { nextLevelIndex } from './save';
-import { hideUi } from './screens';
-import { toast } from './toast';
+import { hideUi } from '../components/screens';
+import { toast } from '../components/toast';
 
-export type Target = { kind: 'game'; id: string } | { kind: 'fuego'; level: number };
+export type Target = { kind: 'game'; id: string } | { kind: 'fuego'; level: number } | { kind: 'levels' };
 
 export const inTable = () => !!net.code && net.peerOnline;
 
 let lastSent = 0;
-const label = (t: Target) => (t.kind === 'fuego' ? 'Fuego y Agua' : (gameById(t.id)?.name ?? 'otro juego'));
+const label = (t: Target) => (t.kind === 'game' ? (gameById(t.id)?.name ?? 'otro juego') : 'Fuego y Agua');
 
 function stopScenes(except: string[]) {
   const g = app.game;
@@ -30,6 +30,10 @@ export function goTo(t: Target, broadcast = true) {
     stopScenes(['Menu']);
     if (!g.scene.isActive('Menu')) g.scene.start('Menu');
     launchGame(def, 'online');
+  } else if (t.kind === 'levels') {
+    closeGames();
+    stopScenes([]);
+    g.scene.start('LevelSelect', { online: true });
   } else {
     closeGames();
     stopScenes([]);

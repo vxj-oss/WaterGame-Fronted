@@ -59,14 +59,21 @@ type Kind = 'v' | 'r';
 function start(ctx: Ctx) {
   let turn: 0 | 1 = ctx.round % 2 === 0 ? 0 : 1;
   let card: { k: Kind; i: number } | null = null;
+  let phase: 'pick' | 'card' | 'review' = 'pick';
+  let answer = '';
+  let note = '';
+  const tally: [number, number] = [0, 0];
   const box = el('div', 'tod');
   ctx.root.append(box);
 
-  const mine = () => (ctx.local ? true : turn === ctx.me);
+  const turnPlays = () => ctx.local || turn === ctx.me;
+  const reviewer = () => ctx.local || turn !== ctx.me;
+  const turnName = () => (ctx.local ? ctx.names[turn] : turn === ctx.me ? 'Tú' : ctx.other);
 
   const label = () => {
     ctx.turn(turn);
-    ctx.status(ctx.local ? `Turno de <b>${esc(ctx.names[turn])}</b>` : turn === ctx.me ? '<b>Tu turno</b>' : `Turno de ${esc(ctx.other)}`);
+    const who = ctx.local ? `Turno de <b>${esc(ctx.names[turn])}</b>` : turn === ctx.me ? '<b>Tu turno</b>' : `Turno de ${esc(ctx.other)}`;
+    ctx.status(`${who} · cumplidos ${tally[0]} - ${tally[1]}`);
   };
 
   const draw = () => {
@@ -74,34 +81,61 @@ function start(ctx: Ctx) {
     label();
     const c = el('div', `todcard ${card ? card.k : 'n'}`);
     if (!card) {
-      c.innerHTML = `<span class="emoji">🎲</span><p>${mine() ? '¿Verdad o reto?' : `${esc(ctx.other)} está eligiendo…`}</p>`;
+      c.innerHTML = `<span class="emoji">🎲</span><p>${turnPlays() ? '¿Verdad o reto?' : `${esc(ctx.other)} está eligiendo…`}</p>`;
     } else {
       const text = card.k === 'v' ? TRUTHS[card.i] : DARES[card.i];
-      c.innerHTML = `<small>${card.k === 'v' ? 'Verdad' : 'Reto'}</small><p>${esc(text)}</p>`;
+      const extra = phase === 'review' && card.k === 'v' && answer ? `<p class="ans">“${esc(answer)}”</p>` : '';
+      c.innerHTML = `<small>${card.k === 'v' ? 'Verdad' : 'Reto'}</small><p>${esc(text)}</p>${extra}`;
     }
     box.append(c);
+    if (note) box.append(el('div', 'tf-note', esc(note)));
 
     const row = el('div', 'grow');
     if (!card) {
-      if (mine()) {
+      if (turnPlays()) {
         const v = el('button', 'gbtn lagoon', 'Verdad');
         v.onclick = () => pick('v');
         const r = el('button', 'gbtn', 'Reto');
         r.onclick = () => pick('r');
         row.append(v, r);
       }
-    } else if (mine()) {
-      const ok = el('button', 'gbtn gold', 'Hecho ✓');
-      ok.onclick = () => done(true);
-      const swap = el('button', 'gbtn ghost', 'Otra carta');
-      swap.onclick = () => pick(card!.k);
-      row.append(ok, swap);
+    } else if (phase === 'card') {
+      if (turnPlays()) {
+        if (card.k === 'v') {
+          const input = el('input', 'ginput plain');
+          input.placeholder = 'Escribe tu respuesta (o cuéntala por llamada)';
+          input.maxLength = 160;
+          input.value = answer;
+          input.addEventListener('input', () => (answer = input.value));
+          box.append(input);
+        }
+        const ok = el('button', 'gbtn gold', card.k === 'v' ? 'Responder ✓' : 'Ya lo cumplí ✓');
+        ok.onclick = () => claim(card!.k === 'v' ? answer.trim() : '', true);
+        const swap = el('button', 'gbtn ghost', 'Otra carta');
+        swap.onclick = () => pick(card!.k);
+        row.append(ok, swap);
+      } else {
+        box.append(el('div', 'tf-note', `Esperando a que ${esc(turnName())} ${card.k === 'v' ? 'responda' : 'cumpla el reto'}…`));
+      }
+    } else if (phase === 'review') {
+      if (reviewer()) {
+        const yes = el('button', 'gbtn gold', card.k === 'v' ? '✓ Me convence' : '✓ Sí lo cumplió');
+        yes.onclick = () => verdict(true, true);
+        const no = el('button', 'gbtn ghost', card.k === 'v' ? '✗ No me convence' : '✗ No lo cumplió');
+        no.onclick = () => verdict(false, true);
+        row.append(yes, no);
+      } else {
+        box.append(el('div', 'tf-note', `Esperando a que ${esc(ctx.other)} confirme…`));
+      }
     }
     box.append(row);
   };
 
-  const draw1 = (k: Kind, i: number) => {
+  const showCard = (k: Kind, i: number) => {
     card = { k, i };
+    phase = 'card';
+    answer = '';
+    note = '';
     draw();
   };
 
@@ -110,19 +144,39 @@ function start(ctx: Ctx) {
     let i = rnd(list.length);
     if (card && card.k === k && list.length > 1) while (i === card.i) i = rnd(list.length);
     ctx.send({ p: k, i });
-    draw1(k, i);
+    showCard(k, i);
   };
 
-  const done = (send: boolean) => {
-    if (send) ctx.send({ d: 1 });
-    card = null;
-    turn = turn === 0 ? 1 : 0;
+  const claim = (a: string, send: boolean) => {
+    if (phase !== 'card') return;
+    phase = 'review';
+    answer = a;
+    note = '';
+    if (send) ctx.send({ rs: { a } });
+    draw();
+  };
+
+  const verdict = (ok: boolean, send: boolean) => {
+    if (phase !== 'review') return;
+    if (send) ctx.send({ v: ok ? 1 : 0 });
+    if (ok) {
+      tally[turn]++;
+      card = null;
+      phase = 'pick';
+      note = '';
+      turn = turn === 0 ? 1 : 0;
+    } else {
+      phase = 'card';
+      answer = '';
+      note = ctx.local || turn !== ctx.me ? 'No quedó convencido. Inténtenlo otra vez.' : 'Tu pareja no quedó convencida. Inténtalo otra vez.';
+    }
     draw();
   };
 
   ctx.on((d) => {
-    if (d?.p && typeof d.i === 'number') draw1(d.p as Kind, d.i);
-    else if (d?.d) done(false);
+    if (d?.p && typeof d.i === 'number') showCard(d.p as Kind, d.i);
+    else if (d?.rs) claim(String(d.rs.a ?? ''), false);
+    else if (typeof d?.v === 'number') verdict(!!d.v, false);
   });
 
   draw();

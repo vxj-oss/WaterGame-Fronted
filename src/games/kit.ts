@@ -1,13 +1,18 @@
 import './games.css';
-import { app } from '../app';
-import { net } from '../net';
-import { toast } from '../toast';
-import { MESSAGES } from '../messages';
+import { app } from '../services/app';
+import { net } from '../services/net';
+import { addLocalWin, addOnlineBest, addOnlineWin, loadRecords, localVersus, onlineBest, onlineVersus } from '../services/records';
+import { toast } from '../components/toast';
+import { MESSAGES } from '../data/messages';
 
 export type Winner = 0 | 1 | null | 'team';
 export interface Outcome {
   winner: Winner;
   sub?: string;
+  primary?: string;
+  score?: number;
+  onNext?: (matchOver: boolean) => void;
+  matchPrimary?: string;
 }
 
 export interface Ctx {
@@ -39,6 +44,7 @@ export interface GameDef {
   online: boolean;
   local: boolean;
   solo?: boolean;
+  match?: { target: number; perPoint?: number };
   start(ctx: Ctx): void;
 }
 
@@ -145,6 +151,7 @@ export function closeGames() {
 
 export function launchGame(def: GameDef, mode: 'online' | 'local' | 'solo') {
   current?.dispose();
+  if (mode === 'online') void loadRecords();
   current = new Session(def, mode);
 }
 
@@ -156,11 +163,13 @@ class Session {
   private statusEl!: HTMLElement;
   private againBtn!: HTMLButtonElement;
   private layer!: HTMLElement;
-  private chips: { box: HTMLElement; n: HTMLElement; s: HTMLElement }[] = [];
+  private chips: { box: HTMLElement; n: HTMLElement; s: HTMLElement; d: HTMLElement }[] = [];
   private handlers: ((d: any) => void)[] = [];
   private cleanups: (() => void)[] = [];
   private offs: (() => void)[] = [];
-  private score: [number, number] = [0, 0];
+  private points: [number, number] = [0, 0];
+  private wins: [number, number] = [0, 0];
+  private matchOver = false;
   private round = -1;
   private hostState: { v: unknown } | null = null;
   private guestReady = false;
@@ -212,9 +221,10 @@ class Session {
       const ic = el('i', '', i === 0 ? FLAME : DROP);
       const n = el('span');
       const s = el('b', '', '0');
-      box.append(ic, n, s);
+      const d = el('small');
+      box.append(ic, n, s, d);
       chips.append(box);
-      this.chips.push({ box, n, s });
+      this.chips.push({ box, n, s, d });
     });
     top.append(back, home, title, chips);
 
@@ -236,11 +246,22 @@ class Session {
   private renderChips() {
     this.chips.forEach((c, i) => {
       c.n.textContent = this.names[i];
-      c.s.textContent = String(this.score[i]);
+      c.s.textContent = String(this.points[i]);
+      c.d.textContent = this.series && (this.def.match?.perPoint ?? 2) > 1 ? '●'.repeat(this.wins[i]) + '○'.repeat(Math.max(0, 2 - this.wins[i])) : '';
     });
   }
 
+  private get series() {
+    return !!this.def.match && this.mode !== 'solo';
+  }
+
   private begin() {
+    if (this.matchOver) {
+      this.points = [0, 0];
+      this.wins = [0, 0];
+      this.matchOver = false;
+      this.renderChips();
+    }
     this.runCleanups();
     this.round++;
     this.handlers = [];
@@ -368,26 +389,93 @@ class Session {
     else this.begin();
   }
 
-  private finish(o: Outcome) {
-    if (o.winner === 0 || o.winner === 1) this.score[o.winner]++;
-    this.renderChips();
-    this.chips.forEach((c) => c.box.classList.remove('on'));
-    const w = o.winner;
-    let title: string;
-    if (w === 'team') title = '¡Lo lograron!';
-    else if (w === null) title = 'Empate';
-    else if (this.mode === 'solo') title = w === 0 ? '¡Ganaste!' : 'Ganó el robot';
-    else if (this.mode === 'local') title = `Ganó ${this.names[w]}`;
-    else title = w === this.me ? '¡Ganaste!' : `Ganó ${this.names[w]}`;
+  private who(w: 0 | 1) {
+    if (this.mode === 'local') return this.names[w];
+    return w === this.me ? 'Tú' : this.names[w];
+  }
+
+  private recordText() {
+    const game = this.def.id;
+    const v = this.mode === 'online' ? onlineVersus(game) : this.mode === 'local' ? localVersus(game) : null;
+    if (!v) return '';
+    return this.mode === 'local' ? `Récord histórico: ${this.names[0]} ${v[0]} – ${v[1]} ${this.names[1]}` : `Récord histórico: Tú ${v[0]} – ${v[1]} ${this.names[this.me === 0 ? 1 : 0]}`;
+  }
+
+  private modal(title: string, lines: string[], primary: string, onPrimary?: () => void) {
     const sweet = MESSAGES[rnd(MESSAGES.length)];
-    this.showLayer(`<div class="gpanel"><h3>${esc(title)}</h3>${o.sub ? `<p>${esc(o.sub)}</p>` : ''}<p class="sweet">${esc(sweet)}</p>
-      <div class="grow"><button class="gbtn gold" id="ga">Otra vez</button><button class="gbtn ghost" id="gv">Ver juego</button><button class="gbtn ghost" id="gx">Salir</button></div></div>`);
-    (this.layer.querySelector('#ga') as HTMLElement).onclick = () => this.again();
+    const body = lines.filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join('');
+    this.showLayer(`<div class="gpanel"><h3>${esc(title)}</h3>${body}<p class="sweet">${esc(sweet)}</p>
+      <div class="grow"><button class="gbtn gold" id="ga">${esc(primary)}</button><button class="gbtn ghost" id="gv">Ver juego</button><button class="gbtn ghost" id="gx">Salir</button></div></div>`);
+    const go = () => {
+      onPrimary?.();
+      this.again();
+    };
+    (this.layer.querySelector('#ga') as HTMLElement).onclick = go;
     (this.layer.querySelector('#gv') as HTMLElement).onclick = () => {
       this.hideLayer();
+      this.againBtn.textContent = primary;
+      this.againBtn.onclick = go;
       this.againBtn.hidden = false;
     };
     (this.layer.querySelector('#gx') as HTMLElement).onclick = () => this.exit();
+  }
+
+  private finish(o: Outcome) {
+    this.chips.forEach((c) => c.box.classList.remove('on'));
+    const w = o.winner;
+    if (w === 'team') {
+      let line = '';
+      if (typeof o.score === 'number') {
+        if (this.mode === 'online') addOnlineBest(this.def.id, o.score, this.me === 0);
+        const best = this.mode === 'online' ? onlineBest(this.def.id) : null;
+        if (best !== null) line = `Mejor marca del equipo: ${best}`;
+      }
+      this.renderChips();
+      return this.modal('¡Lo lograron!', [o.sub ?? '', line], o.primary ?? 'Otra vez');
+    }
+    if (!this.series) {
+      if (w === 0 || w === 1) this.points[w]++;
+      this.renderChips();
+      let title: string;
+      if (w === null) title = 'Empate';
+      else if (this.mode === 'solo') title = w === 0 ? '¡Ganaste!' : 'Ganó el robot';
+      else if (this.mode === 'local') title = `Ganó ${this.names[w]}`;
+      else title = w === this.me ? '¡Ganaste!' : `Ganó ${this.names[w]}`;
+      return this.modal(title, [o.sub ?? ''], o.primary ?? 'Otra vez');
+    }
+    if (w === null) {
+      o.onNext?.(false);
+      this.renderChips();
+      return this.modal('Empate', [o.sub ?? '', 'La ronda se repite'], 'Repetir ronda');
+    }
+    const target = this.def.match!.target;
+    this.wins[w]++;
+    let setWon = false;
+    let matchWon = false;
+    if (this.wins[w] >= (this.def.match!.perPoint ?? 2)) {
+      setWon = true;
+      this.points[w]++;
+      this.wins = [0, 0];
+      if (this.points[w] >= target) {
+        matchWon = true;
+        this.matchOver = true;
+      }
+    }
+    o.onNext?.(matchWon);
+    this.renderChips();
+    const score = `Puntos: ${this.names[0]} ${this.points[0]} – ${this.points[1]} ${this.names[1]} (meta ${target})`;
+    if (matchWon) {
+      if (this.mode === 'online') addOnlineWin(this.def.id, w === 0 ? 'fire' : 'water', this.me === 0);
+      else if (this.mode === 'local') addLocalWin(this.def.id, w);
+      const title = this.mode === 'local' ? `¡${this.names[w]} ganó la partida!` : w === this.me ? '¡Ganaste la partida!' : `Ganó la partida ${this.names[w]}`;
+      return this.modal(title, [o.sub ?? '', score, this.recordText()], o.matchPrimary ?? 'Revancha');
+    }
+    if (setWon) {
+      const title = this.mode === 'local' ? `¡Punto para ${this.names[w]}!` : w === this.me ? '¡Punto para ti!' : `Punto para ${this.names[w]}`;
+      return this.modal(title, [o.sub ?? '', score], (this.def.match!.perPoint ?? 2) === 1 ? 'Siguiente ronda' : 'Siguiente serie');
+    }
+    const title = this.mode === 'local' ? `Ronda para ${this.names[w]}` : w === this.me ? '¡Ganaste la ronda!' : `Ganó la ronda ${this.names[w]}`;
+    return this.modal(title, [o.sub ?? '', `Serie: ${this.names[0]} ${this.wins[0]} – ${this.wins[1]} ${this.names[1]} (mejor de 3)`], 'Siguiente ronda');
   }
 
   home() {

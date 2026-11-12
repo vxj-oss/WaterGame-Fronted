@@ -2,7 +2,7 @@ import { Ctx, el, esc, GameDef, norm, shuffle } from './kit';
 
 const CATS = ['Nombre', 'Animal', 'Fruta o verdura', 'País o ciudad', 'Color', 'Cosa'];
 const LETTERS = 'ABCDEFGHILMNOPRSTUV'.split('');
-const ROUNDS = 4;
+const ROUNDS = 1;
 const SECONDS = 90;
 const GRACE = 10;
 
@@ -56,7 +56,7 @@ function start(ctx: Ctx) {
     disputed.clear();
     box.innerHTML = '';
     ctx.turn(null);
-    ctx.status(`Ronda <b>${ri + 1}</b> de ${ROUNDS} · puntos ${totals[me]} - ${totals[other]}`);
+    ctx.status(`Letra <b>${esc(letter())}</b> · llena las categorías`);
 
     const head = el('div', 'tf-head');
     const badge = el('div', 'tf-letter', esc(letter()));
@@ -143,7 +143,7 @@ function start(ctx: Ctx) {
     box.innerHTML = '';
     const mt = roundTotal(me);
     const ot = roundTotal(other);
-    ctx.status(`Letra <b>${esc(letter())}</b> · ronda ${ri + 1} de ${ROUNDS}`);
+    ctx.status(`Letra <b>${esc(letter())}</b> · revisen las respuestas`);
     const table = el('div', 'tf-rev');
     table.append(el('b', '', ''), el('b', 'tf-who', 'Tú'), el('b', 'tf-who', esc(ctx.other)));
     CATS.forEach((c, i) => {
@@ -224,5 +224,6 @@ export const tuti: GameDef = {
   to: '#f43f5e',
   online: true,
   local: false,
+  match: { target: 2 },
   start,
 };

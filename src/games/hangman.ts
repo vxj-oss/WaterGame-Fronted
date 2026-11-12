@@ -34,6 +34,7 @@ function start(ctx: Ctx) {
   let wrong = 0;
   let pending = false;
   let over = false;
+  const hints: string[] = [];
 
   ctx.turn(setter);
 
@@ -45,6 +46,7 @@ function start(ctx: Ctx) {
     }
     box.innerHTML = `<div class="gpanel"><h3>Tu palabra</h3><p>Escribe una palabra (solo letras, de 3 a 14) para que el otro jugador la adivine, o deja que el juego elija.</p>
       <input class="ginput" id="hw" maxlength="14" autocomplete="off" autocapitalize="characters" placeholder="PALABRA" />
+      <input class="ginput plain" id="hh" maxlength="60" autocomplete="off" placeholder="Pista (opcional): es una fruta…" />
       <p class="err" id="he" style="color:#ff9aa8;min-height:1.2em"></p>
       <div class="grow"><button class="gbtn" id="hok">Listo</button><button class="gbtn lagoon" id="hrnd">Al azar</button></div></div>`;
     const input = box.querySelector<HTMLInputElement>('#hw')!;
@@ -58,8 +60,10 @@ function start(ctx: Ctx) {
       word = clean;
       len = clean.length;
       shown = Array(len).fill('');
-      ctx.send({ w: len });
+      const hint = box.querySelector<HTMLInputElement>('#hh')!.value.trim();
+      ctx.send({ w: len, h: hint || undefined });
       play();
+      if (hint) addHint(hint);
     };
     box.querySelector<HTMLElement>('#hok')!.onclick = () => go(input.value);
     box.querySelector<HTMLElement>('#hrnd')!.onclick = () => go(WORDS[rnd(WORDS.length)]);
@@ -68,7 +72,21 @@ function start(ctx: Ctx) {
   };
 
   const play = () => {
-    box.innerHTML = `${GALLOWS}<div class="word" id="hword"></div><div class="keys" id="hkeys"></div>`;
+    box.innerHTML = `${GALLOWS}<div class="hmain"><div class="word" id="hword"></div><div class="hints" id="hhints"></div>${
+      iSet ? '<div class="guessrow"><input class="ginput plain" id="hgive" maxlength="60" autocomplete="off" placeholder="Escribe una pista…" /><button class="gbtn mini lagoon" id="hsend">Dar pista</button></div>' : ''
+    }<div class="keys" id="hkeys"></div></div>`;
+    if (iSet) {
+      const input = box.querySelector<HTMLInputElement>('#hgive')!;
+      const give = () => {
+        const t = input.value.trim();
+        if (!t || over) return;
+        input.value = '';
+        ctx.send({ h: t });
+        addHint(t);
+      };
+      box.querySelector<HTMLElement>('#hsend')!.onclick = give;
+      input.addEventListener('keydown', (e) => e.key === 'Enter' && give());
+    }
     const keys = box.querySelector<HTMLElement>('#hkeys')!;
     LETTERS.forEach((l) => {
       const b = el('button', '', l);
@@ -77,6 +95,12 @@ function start(ctx: Ctx) {
       keys.append(b);
     });
     draw();
+  };
+
+  const addHint = (t: string) => {
+    hints.push(t);
+    const out = box.querySelector<HTMLElement>('#hhints');
+    if (out) out.innerHTML = hints.map((h) => `<span>💡 ${esc(h)}</span>`).join('');
   };
 
   const draw = (reveal?: string) => {
@@ -147,8 +171,11 @@ function start(ctx: Ctx) {
       len = d.w as number;
       shown = Array(len).fill('');
       play();
+      if (typeof d.h === 'string') addHint(d.h);
     } else if (!iSet && d?.r) {
       settle(d.r.l, d.r.pos, d.r.done, d.r.full);
+    } else if (!iSet && typeof d?.h === 'string' && len > 0) {
+      addHint(d.h);
     }
   });
 
@@ -164,5 +191,6 @@ export const hangman: GameDef = {
   to: '#0ea5e9',
   online: true,
   local: false,
+  match: { target: 2 },
   start,
 };

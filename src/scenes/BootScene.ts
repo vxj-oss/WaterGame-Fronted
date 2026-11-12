@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { glowTexture, grad, makeCanvas, rr } from '../gfx';
+import { glowTexture, grad, makeCanvas, rr } from '../utils/gfx';
 
 export class BootScene extends Phaser.Scene {
   constructor() {

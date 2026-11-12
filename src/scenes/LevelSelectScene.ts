@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
-import { LEVELS } from '../levels';
-import { getRecord, isUnlocked } from '../save';
-import { sfx } from '../audio';
-import { net } from '../net';
-import { backgroundTexture, cardTexture, inv } from '../gfx';
-import { CSS, DISPLAY } from '../theme';
-import { modal, SH, SW, text } from '../ui';
-import { applyCamera, VIEW } from '../view';
+import { LEVELS } from '../data/levels';
+import { getRecord, isUnlocked } from '../services/save';
+import { sfx } from '../services/audio';
+import { net } from '../services/net';
+import { backgroundTexture, cardTexture, inv } from '../utils/gfx';
+import { CSS, DISPLAY } from '../config/theme';
+import { modal, SH, SW, text } from '../components/ui';
+import { applyCamera, VIEW } from '../config/view';
 
 export class LevelSelectScene extends Phaser.Scene {
   private online = false;

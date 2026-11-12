@@ -103,5 +103,6 @@ export const memory: GameDef = {
   to: '#ec4899',
   online: true,
   local: true,
+  match: { target: 2 },
   start,
 };

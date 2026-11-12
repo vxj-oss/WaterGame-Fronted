@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { sfx } from './audio';
-import { buttonTexture, circleTexture, gradientText, inv, panelTexture, pillTexture, RENDER, Variant } from './gfx';
-import { BODY, CSS, DISPLAY, EMBER, LAGOON } from './theme';
-import { TOP } from './config';
-import { VIEW } from './view';
+import { sfx } from '../services/audio';
+import { buttonTexture, circleTexture, gradientText, inv, panelTexture, pillTexture, RENDER, Variant } from '../utils/gfx';
+import { BODY, CSS, DISPLAY, EMBER, LAGOON } from '../config/theme';
+import { TOP } from '../config/constants';
+import { VIEW } from '../config/view';
 
 export const SW = 960;
 export const SH = 584;

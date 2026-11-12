@@ -26,10 +26,15 @@ export async function toggleFullscreen() {
 
 export function autoFullscreenOnTouch() {
   if (!window.matchMedia('(pointer: coarse)').matches) return;
+  let last = 0;
   window.addEventListener(
     'pointerdown',
     () => {
-      if (wantFs && !document.fullscreenElement) void enterFullscreen();
+      const now = performance.now();
+      if (wantFs && !document.fullscreenElement && now - last > 5000) {
+        last = now;
+        void enterFullscreen();
+      }
     },
     true,
   );

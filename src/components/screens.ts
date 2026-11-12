@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { API, api, net } from './net';
-import { LEVELS } from './levels';
-import { nextLevelIndex, record } from './save';
-import { launchGame } from './games/kit';
-import { gameById } from './games/registry';
+import { app } from '../services/app';
+import { API, api, net } from '../services/net';
+import { record } from '../services/save';
+import { openHub } from '../games/hub';
+import { launchGame } from '../games/kit';
+import { gameById } from '../games/registry';
 
 declare const google: any;
 
@@ -19,10 +20,12 @@ export function hideUi() {
   const el = root();
   el.style.display = 'none';
   el.innerHTML = '';
+  if (!document.getElementById('games')) app.game?.loop.wake();
 }
 
 function card(html: string) {
   const el = root();
+  app.game?.loop.sleep();
   el.style.display = 'flex';
   el.innerHTML = `<div class="card">${html}</div>`;
 }
@@ -189,7 +192,10 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple, game?: string) {
     launchGame(def, 'online');
   };
 
+  let opened = false;
+
   const draw = () => {
+    if (document.getElementById('games')) return;
     const role = net.role ?? couple.role;
     const connected = net.code !== null;
     const you = role === 'fire' ? 'fire' : 'water';
@@ -203,12 +209,11 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple, game?: string) {
         ${slot(you, 'Tú', connected, connected ? 'Conectado' : 'Conectando')}
         ${slot(other, 'Tu pareja', connected && net.peerOnline, net.peerOnline ? 'Aquí contigo' : 'Esperando')}
       </div>
-      <p>${gameDef ? `Van a jugar <b>${esc(gameDef.name)}</b>.` : `Juegas como <b>${role === 'fire' ? 'Fuego' : 'Agua'}</b>.`}</p>
+      <p>${gameDef ? `Van a jugar <b>${esc(gameDef.name)}</b>.` : net.peerOnline ? 'Ya están los dos. ¡Elijan un juego!' : 'Cuando tu pareja entre con el código, elegirán juntos un juego.'}</p>
       ${
         gameDef
           ? `<div class="row"><button id="gg" ${net.peerOnline ? '' : 'disabled'}>Jugar ${esc(gameDef.name)}</button></div>`
-          : `<div class="row"><button id="go" ${net.peerOnline ? '' : 'disabled'}>Empezar</button>
-      <button id="pick" class="lagoon" ${net.peerOnline ? '' : 'disabled'}>Elegir nivel</button></div>`
+          : `<div class="row"><button id="hubbtn" ${net.peerOnline ? '' : 'disabled'}>Elegir juego</button></div>`
       }
       <div class="row"><button id="back" class="link">Menú</button><button id="leave" class="link">Salir de la mesa</button></div>`);
     $('copy').onclick = () => {
@@ -221,17 +226,18 @@ async function lobbyScreen(scene: Phaser.Scene, couple: Couple, game?: string) {
         startGame(gameDef.id);
       };
     } else {
-      $('go').onclick = () => {
-        const lvl = nextLevelIndex(LEVELS.length);
-        net.send('event', { t: 'goto', level: lvl });
-        start(lvl);
-      };
-      $('pick').onclick = () => {
-        net.send('event', { t: 'select' });
+      $('hubbtn').onclick = () => {
         cleanup();
         hideUi();
-        scene.scene.start('LevelSelect', { online: true });
+        openHub(scene);
       };
+      if (net.peerOnline && connected && !opened) {
+        opened = true;
+        cleanup();
+        hideUi();
+        openHub(scene);
+        return;
+      }
     }
     $('leave').onclick = async () => {
       cleanup();

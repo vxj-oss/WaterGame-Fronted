@@ -1,4 +1,4 @@
-import { api, net } from './net';
+import { api, net } from '../services/net';
 
 interface Sig {
   desc?: RTCSessionDescriptionInit;

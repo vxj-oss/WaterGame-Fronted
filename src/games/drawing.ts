@@ -335,7 +335,7 @@ function start(ctx: Ctx) {
     status();
     next = window.setTimeout(() => {
       idx++;
-      if (idx >= ROUNDS) ctx.finish({ winner: 'team', sub: `${hits} de ${ROUNDS} dibujos adivinados` });
+      if (idx >= ROUNDS) ctx.finish({ winner: 'team', score: hits, sub: `${hits} de ${ROUNDS} dibujos adivinados` });
       else round();
     }, 2600);
   };

@@ -201,5 +201,6 @@ export const navy: GameDef = {
   to: '#2563eb',
   online: true,
   local: false,
+  match: { target: 2 },
   start,
 };

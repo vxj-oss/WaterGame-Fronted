@@ -13,6 +13,8 @@ export function computeView() {
   else h = Math.round(BASE_W / aspect);
   w = Math.min(w, 1560);
   h = Math.min(h, 1000);
+  w = Math.round(w / 8) * 8;
+  h = Math.round(h / 8) * 8;
   const dpr = window.devicePixelRatio || 1;
   const z = Math.min(2.5, Math.max(0.5, (window.innerHeight * dpr) / h));
   const cw = Math.round(w * z);

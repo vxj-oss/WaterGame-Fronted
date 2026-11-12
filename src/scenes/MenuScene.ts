@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
-import { LEVELS } from '../levels';
-import { net } from '../net';
-import { openOnline } from '../screens';
+import { LEVELS } from '../data/levels';
+import { net } from '../services/net';
+import { openOnline } from '../components/screens';
 import { openHub } from '../games/hub';
-import { nextLevelIndex } from '../save';
-import { sfx } from '../audio';
-import { toggleFullscreen } from '../fullscreen';
-import { backgroundTexture } from '../gfx';
-import { CSS, EMBER, LAGOON } from '../theme';
-import { button, circleButton, display, gradientText, modal, pill, SH, SW, text } from '../ui';
-import { applyCamera, VIEW } from '../view';
+import { nextLevelIndex } from '../services/save';
+import { sfx } from '../services/audio';
+import { toggleFullscreen } from '../utils/fullscreen';
+import { backgroundTexture } from '../utils/gfx';
+import { CSS, EMBER, LAGOON } from '../config/theme';
+import { button, circleButton, display, gradientText, modal, pill, SH, SW, text } from '../components/ui';
+import { applyCamera, VIEW } from '../config/view';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -23,7 +23,7 @@ export class MenuScene extends Phaser.Scene {
     this.buildArt();
     this.buildTop();
 
-    const x0 = 64;
+    const x0 = 56 - VIEW.ox;
     pill(this, x0, 70, 236, 30, 'JUEGO EN PAREJA', { size: '13px', color: CSS.lagoon, originX: 0 });
     const fuego = gradientText(display(this, x0 - 4, 138, 'Fuego', '112px').setOrigin(0, 0.5), EMBER);
     const agua = gradientText(display(this, x0 + 26, 236, '& Agua', '112px').setOrigin(0, 0.5), LAGOON);
@@ -33,10 +33,8 @@ export class MenuScene extends Phaser.Scene {
     });
     text(this, x0, 318, 'Dos personajes, un solo camino', { fontSize: '19px', color: CSS.mute, fontStyle: '700' });
 
-    const play = () => this.scene.start('Level', { level: nextLevelIndex(LEVELS.length) });
     button(this, x0, 384, 'Jugar en pareja', () => void openOnline(this), { w: 320, h: 60, size: '24px', align: 'left' });
-    button(this, x0, 448, 'Jugar local', play, { w: 156, h: 48, variant: 'lagoon', size: '19px', align: 'left' });
-    button(this, x0 + 164, 448, 'Niveles', () => this.scene.start('LevelSelect'), { w: 156, h: 48, variant: 'ghost', size: '19px', align: 'left' });
+    button(this, x0, 448, 'Jugar local', () => openHub(this, 'local'), { w: 320, h: 48, variant: 'lagoon', size: '19px', align: 'left' });
     button(this, x0, 504, 'Ver más juegos', () => openHub(this), { w: 320, h: 48, variant: 'gold', size: '19px', align: 'left' });
     text(this, x0, 556, 'Fuego: A D W    Agua: ← → ↑    R reinicia', { fontSize: '14px', color: CSS.mute, fontStyle: '700' });
 
@@ -82,26 +80,28 @@ export class MenuScene extends Phaser.Scene {
         tint,
         blendMode: 'ADD',
       });
-    rise([-VIEW.ox, 520], [0xff7a3d, 0xffb347, 0xff4d6d]);
-    rise([440, SW + VIEW.ox], [0x2ed3e6, 0x9af3ff, 0x3b8cff]);
+    rise([-VIEW.ox, 520 + VIEW.ox], [0xff7a3d, 0xffb347, 0xff4d6d]);
+    rise([440 + VIEW.ox, SW + VIEW.ox], [0x2ed3e6, 0x9af3ff, 0x3b8cff]);
   }
 
   private buildArt() {
     const floor = 478;
-    const tiles = Math.ceil((SW + VIEW.ox - 448) / 32) + 1;
+    const dx = VIEW.ox;
+    const start = 448 + dx;
+    const tiles = Math.ceil((SW + VIEW.ox - start) / 32) + 1;
     const rows = Math.ceil((SH + VIEW.oy - floor) / 32) + 1;
     for (let i = 0; i < tiles; i++) {
-      for (let r = 0; r < rows; r++) this.add.image(448 + i * 32 + 16, floor + 16 + r * 32, 'wall').setTint(r ? 0xb8c6cc : 0xffffff);
+      for (let r = 0; r < rows; r++) this.add.image(start + i * 32 + 16, floor + 16 + r * 32, 'wall').setTint(r ? 0xb8c6cc : 0xffffff);
     }
-    this.add.image(836, floor - 52, 'door-fire').setScale(2.6);
-    this.add.image(896, floor - 52, 'door-water').setScale(2.6);
+    this.add.image(836 + dx, floor - 52, 'door-fire').setScale(2.6);
+    this.add.image(896 + dx, floor - 52, 'door-water').setScale(2.6);
 
     const glow = (x: number, y: number, tint: number) => {
       const g = this.add.image(x, y, 'glow').setTint(tint).setScale(3.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
       this.tweens.add({ targets: g, alpha: 0.28, scale: 3.9, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     };
-    glow(600, 420, 0xff7a3d);
-    glow(716, 420, 0x2ed3e6);
+    glow(600 + dx, 420, 0xff7a3d);
+    glow(716 + dx, 420, 0x2ed3e6);
 
     const hero = (x: number, key: string, delay: number) => {
       const s = this.add.image(x, floor - 54, key).setScale(3.6).setDepth(2);
@@ -109,8 +109,8 @@ export class MenuScene extends Phaser.Scene {
       this.tweens.add({ targets: s, y: s.y - 5, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
       return s;
     };
-    const fire = hero(600, 'fire', 0);
-    const water = hero(716, 'water', 450);
+    const fire = hero(600 + dx, 'fire', 0);
+    const water = hero(716 + dx, 'water', 450);
 
     const trail = (follow: Phaser.GameObjects.Image, tint: number[]) =>
       this.add
@@ -130,15 +130,15 @@ export class MenuScene extends Phaser.Scene {
     trail(fire, [0xff4a1c, 0xffa02a, 0xffd23f]);
     trail(water, [0x2fa8ff, 0x9fe0ff, 0xffffff]);
 
-    const heart = text(this, 658, 340, '♥', { fontSize: '40px', color: '#ff5a7a' }).setOrigin(0.5).setDepth(3);
+    const heart = text(this, 658 + dx, 340, '♥', { fontSize: '40px', color: '#ff5a7a' }).setOrigin(0.5).setDepth(3);
     this.tweens.add({ targets: heart, y: 316, alpha: 0.55, scale: 1.18, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
     const gem = (x: number, y: number, key: string, delay: number) => {
       const s = this.add.image(x, y, key).setScale(2.2).setDepth(2);
       this.tweens.add({ targets: s, y: y - 14, angle: 8, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
     };
-    gem(520, 380, 'gem-red', 0);
-    gem(790, 372, 'gem-blue', 600);
+    gem(520 + dx, 380, 'gem-red', 0);
+    gem(790 + dx, 372, 'gem-blue', 600);
   }
 
   private openSettings() {

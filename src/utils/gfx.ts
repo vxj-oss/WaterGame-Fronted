@@ -47,7 +47,11 @@ export function gradientText(t: Phaser.GameObjects.Text, stops: Stops) {
 }
 
 export function backgroundTexture(scene: Phaser.Scene, W = 960, H = 584) {
-  return makeCanvas(scene, `bg-${W}x${H}`, W, H, (ctx) => {
+  const key = `bg-${W}x${H}`;
+  if (!scene.textures.exists(key)) {
+    for (const k of scene.textures.getTextureKeys()) if (k.startsWith('bg-') && k !== key) scene.textures.remove(k);
+  }
+  return makeCanvas(scene, key, W, H, (ctx) => {
     ctx.fillStyle = grad(ctx, 0, 0, 0, H, [[0, '#0f2c39'], [1, '#09171f']]);
     ctx.fillRect(0, 0, W, H);
     const glow = (x: number, y: number, r: number, c: string) => {
