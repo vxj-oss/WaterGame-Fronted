@@ -3,7 +3,6 @@ import { LEVELS } from '../data/levels';
 import { net } from '../services/net';
 import { openOnline } from '../components/screens';
 import { openHub } from '../games/hub';
-import { anniversaryUnlocked, openAnniversary } from '../components/anniversary';
 import { nextLevelIndex } from '../services/save';
 import { sfx } from '../services/audio';
 import { toggleFullscreen } from '../utils/fullscreen';
@@ -37,10 +36,7 @@ export class MenuScene extends Phaser.Scene {
     button(this, x0, 384, 'Jugar en pareja', () => void openOnline(this), { w: 320, h: 60, size: '24px', align: 'left' });
     button(this, x0, 448, 'Jugar local', () => openHub(this, 'local'), { w: 320, h: 48, variant: 'lagoon', size: '19px', align: 'left' });
     button(this, x0, 504, 'Ver más juegos', () => openHub(this), { w: 320, h: 48, variant: 'gold', size: '19px', align: 'left' });
-    if (anniversaryUnlocked()) {
-      const b = button(this, x0, 556, '💌 Nuestro primer mes', () => openAnniversary(), { w: 320, h: 48, variant: 'ember', size: '19px', align: 'left' });
-      b.forEach((o) => this.tweens.add({ targets: o, alpha: 0.82, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' }));
-    } else text(this, x0, 556, 'Fuego: A D W    Agua: ← → ↑    R reinicia', { fontSize: '14px', color: CSS.mute, fontStyle: '700' });
+    text(this, x0, 556, 'Fuego: A D W    Agua: ← → ↑    R reinicia', { fontSize: '14px', color: CSS.mute, fontStyle: '700' });
 
     if (net.reopenLobby) {
       net.reopenLobby = false;
